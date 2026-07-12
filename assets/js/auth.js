@@ -162,7 +162,7 @@ export async function gantiPasswordSendiri(passwordLama, passwordBaru) {
    Contoh: 'https://jaya-wenter-api.onrender.com/api'
    JANGAN hardcode credential di sini — gunakan Render environment variables.
    ──────────────────────────────────────────────────────────────────── */
-const API_BASE_URL = 'https://RENDER_API_URL_BELUM_DISET/api';
+const API_BASE_URL = 'https://jaya-wenter-app-production.up.railway.app/api';
 
 /* ── FASE 3: RBAC HELPERS ────────────────────────────────────────────
    _loadPermissions(): ambil permissions dari collection roles di Firestore.
