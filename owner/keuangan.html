@@ -1,17 +1,17 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Keuangan Usaha — Jaya Wenter App</title>
+<title>Keuangan Usaha â€” Jaya Wenter App</title>
 <meta name="theme-color" content="#1565C0">
 <link rel="manifest" href="../manifest.json">
 <link rel="stylesheet" href="../assets/css/main.css">
-<!-- ══════════════════════════════════════════════════════════
-     MODE DEBUG (ERUDA) — Console mini untuk HP
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+     MODE DEBUG (ERUDA) â€” Console mini untuk HP
      Aktif HANYA jika URL diakhiri ?debug=1
      Hapus blok ini nanti setelah selesai setup index Firebase.
-     ══════════════════════════════════════════════════════════ -->
+     â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 <script>
   if (window.location.search.includes('debug=1')) {
     document.write('<script src="https://cdn.jsdelivr.net/npm/eruda"><\/script>');
@@ -23,17 +23,17 @@
 <body>
 
 <div id="page-loading" class="page-loading">
-  <div class="app-name">🧺 Jaya Wenter App</div>
+  <div class="app-name">ðŸ§º Jaya Wenter App</div>
   <div class="spinner"></div>
 </div>
 
 <div class="app-wrapper hidden" id="app-wrapper">
   <header class="app-header">
-    <button class="back-btn" onclick="window.location.href='index.html'">←</button>
+    <button class="back-btn" onclick="window.location.href='index.html'">â†</button>
     <div class="header-title">
       <h1>Keuangan Usaha</h1>
     </div>
-    <button class="btn-icon" id="btn-tambah-transaksi" title="Tambah Transaksi">➕</button>
+    <button class="btn-icon" id="btn-tambah-transaksi" title="Tambah Transaksi">âž•</button>
   </header>
 
   <div class="page-content">
@@ -98,8 +98,8 @@
       <div class="form-group">
         <label class="form-label">Jenis Transaksi</label>
         <div class="d-flex gap-sm">
-          <button type="button" class="btn btn-outline jenis-btn active" data-jenis="pemasukan" style="flex:1;">📈 Pemasukan</button>
-          <button type="button" class="btn btn-outline jenis-btn" data-jenis="pengeluaran" style="flex:1;">📉 Pengeluaran</button>
+          <button type="button" class="btn btn-outline jenis-btn active" data-jenis="pemasukan" style="flex:1;">ðŸ“ˆ Pemasukan</button>
+          <button type="button" class="btn btn-outline jenis-btn" data-jenis="pengeluaran" style="flex:1;">ðŸ“‰ Pengeluaran</button>
         </div>
         <input type="hidden" id="input-jenis" value="pemasukan">
       </div>
@@ -175,13 +175,13 @@
       let start, end;
       if (customMulai && customAkhir) {
         start = customMulai; end = customAkhir;
-        document.getElementById('periode-label').textContent = `${formatTanggalPendek(start)} — ${formatTanggalPendek(end)}`;
+        document.getElementById('periode-label').textContent = `${formatTanggalPendek(start)} â€” ${formatTanggalPendek(end)}`;
       } else {
         const range = getPeriodeRange(periodeAktif);
         start = range.start; end = range.end;
         const labelMap = { hari: 'Hari Ini', minggu: 'Minggu Ini', bulan: 'Bulan Ini' };
         document.getElementById('periode-label').textContent =
-          `${labelMap[periodeAktif] || ''} (${formatTanggalPendek(start)} — ${formatTanggalPendek(end)})`;
+          `${labelMap[periodeAktif] || ''} (${formatTanggalPendek(start)} â€” ${formatTanggalPendek(end)})`;
       }
 
       semuaTransaksi = await getKeuanganByPeriode(start, end);
@@ -202,7 +202,7 @@
       renderTransaksi();
 
     } catch (e) {
-      container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Gagal memuat data</div></div>`;
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">âš ï¸</div><div class="empty-title">Gagal memuat data</div></div>`;
     }
   }
 
@@ -210,14 +210,14 @@
     const container = document.getElementById('list-transaksi');
 
     if (semuaTransaksi.length === 0) {
-      container.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-title">Belum ada transaksi</div></div>`;
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">ðŸ“­</div><div class="empty-title">Belum ada transaksi</div></div>`;
       return;
     }
 
     container.innerHTML = semuaTransaksi.map((t, idx) => `
       <div class="list-item fade-in" data-idx="${idx}">
         <div class="list-item-icon" style="background: ${t.jenis === 'pemasukan' ? 'var(--color-success-bg)' : 'var(--color-danger-bg)'};">
-          ${t.jenis === 'pemasukan' ? '📈' : '📉'}
+          ${t.jenis === 'pemasukan' ? 'ðŸ“ˆ' : 'ðŸ“‰'}
         </div>
         <div class="list-item-body">
           <div class="list-item-title">${t.keterangan}</div>
@@ -235,8 +235,8 @@
       item.addEventListener('click', async () => {
         const t = semuaTransaksi[Number(item.dataset.idx)];
         const ok = await showConfirm({
-          icon: '🗑', title: 'Hapus Transaksi Ini?',
-          message: `${t.keterangan} — ${formatRupiah(t.nominal)} akan dihapus.`,
+          icon: 'ðŸ—‘', title: 'Hapus Transaksi Ini?',
+          message: `${t.keterangan} â€” ${formatRupiah(t.nominal)} akan dihapus.`,
           labelOk: 'Ya, Hapus', tipOk: 'danger'
         });
         if (ok) {
@@ -248,10 +248,11 @@
     });
   }
 
-  /* ── MODAL TAMBAH TRANSAKSI ── */
+  /* â”€â”€ MODAL TAMBAH TRANSAKSI â”€â”€ */
   const modalTransaksi = document.getElementById('modal-tambah-transaksi');
   document.getElementById('btn-tambah-transaksi').addEventListener('click', () => {
     modalTransaksi.classList.add('active');
+    updateJenisBtn('pemasukan');
   });
   document.getElementById('btn-batal-transaksi').addEventListener('click', () => {
     modalTransaksi.classList.remove('active');
@@ -259,11 +260,37 @@
     document.getElementById('input-tanggal-transaksi').value = getTanggalHariIni();
   });
 
+  function updateJenisBtn(jenis) {
+    document.querySelectorAll('.jenis-btn').forEach(b => {
+      b.classList.remove('active');
+      b.style.background = '';
+      b.style.color = '';
+      b.style.borderColor = '';
+    });
+    const aktif = document.querySelector(`.jenis-btn[data-jenis="${jenis}"]`);
+    if (aktif) {
+      aktif.classList.add('active');
+      if (jenis === 'pemasukan') {
+        aktif.style.background = '#1b5e20';
+        aktif.style.color = '#fff';
+        aktif.style.borderColor = '#1b5e20';
+      } else {
+        aktif.style.background = '#b71c1c';
+        aktif.style.color = '#fff';
+        aktif.style.borderColor = '#b71c1c';
+      }
+    }
+    document.getElementById('input-jenis').value = jenis;
+  }
+
+  // Set default saat modal dibuka
+  document.getElementById('btn-tambah-transaksi').addEventListener('click', () => {
+    updateJenisBtn('pemasukan');
+  });
+
   document.querySelectorAll('.jenis-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.jenis-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById('input-jenis').value = btn.dataset.jenis;
+      updateJenisBtn(btn.dataset.jenis);
     });
   });
 
@@ -295,3 +322,4 @@
 </script>
 </body>
 </html>
+
