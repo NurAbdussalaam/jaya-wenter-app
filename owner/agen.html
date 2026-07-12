@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Kelola Agen — Jaya Wenter App</title>
+<meta name="theme-color" content="#1565C0">
+<link rel="manifest" href="../manifest.json">
+<link rel="stylesheet" href="../assets/css/main.css">
+<!-- ══════════════════════════════════════════════════════════
+     MODE DEBUG (ERUDA) — Console mini untuk HP
+     Aktif HANYA jika URL diakhiri ?debug=1
+     Hapus blok ini nanti setelah selesai setup index Firebase.
+     ══════════════════════════════════════════════════════════ -->
+<script>
+  if (window.location.search.includes('debug=1')) {
+    document.write('<script src="https://cdn.jsdelivr.net/npm/eruda"><\/script>');
+    document.write('<script>window.onload = function(){ eruda.init(); }<\/script>');
+  }
+</script>
+
+</head>
+<body>
+
+<div id="page-loading" class="page-loading">
+  <div class="app-name">🧺 Jaya Wenter App</div>
+  <div class="spinner"></div>
+</div>
+
+<div class="app-wrapper hidden" id="app-wrapper">
+  <header class="app-header">
+    <button class="back-btn" onclick="window.location.href='index.html'">←</button>
+    <div class="header-title">
+      <h1>Kelola Agen</h1>
+    </div>
+    <button class="btn-icon" id="btn-tambah-agen" title="Tambah Agen">➕</button>
+  </header>
+
+  <div class="page-content">
+
+    <div id="list-agen">
+      <div class="loading-spinner"><div class="spinner"></div> Memuat data...</div>
+    </div>
+
+  </div>
+
+  <div class="safe-area-bottom"></div>
+</div>
+
+<!-- Modal Tambah Agen -->
+<div class="modal-overlay" id="modal-tambah-agen">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Tambah Agen Baru</div>
+    <form id="form-tambah-agen">
+      <div class="form-group">
+        <label class="form-label">Nama Lengkap</label>
+        <input type="text" class="form-control" id="input-nama" placeholder="Contoh: Toko Sari Jaya" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input type="text" class="form-control" id="input-username" placeholder="Contoh: agen_sari" required>
+        <div class="form-hint">Huruf kecil, tanpa spasi. Tidak bisa diubah agen.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password Awal</label>
+        <input type="text" class="form-control" id="input-password" placeholder="Minimal 6 karakter" minlength="6" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nomor WhatsApp Agen</label>
+        <input type="text" class="form-control" id="input-wa" placeholder="Contoh: 081234567890" required>
+      </div>
+      <button type="submit" class="btn btn-primary" id="btn-simpan-agen">Simpan Agen</button>
+      <button type="button" class="btn btn-ghost mt-sm" id="btn-batal-agen">Batal</button>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Edit Agen -->
+<div class="modal-overlay" id="modal-edit-agen">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Edit Data Agen</div>
+    <form id="form-edit-agen">
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input type="text" class="form-control" id="edit-username" disabled style="opacity:.6;">
+        <div class="form-hint">Username tidak dapat diubah</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nama Lengkap</label>
+        <input type="text" class="form-control" id="edit-nama" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nomor WhatsApp</label>
+        <input type="text" class="form-control" id="edit-wa" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status Akun</label>
+        <select class="form-control" id="edit-status">
+          <option value="true">Aktif</option>
+          <option value="false">Nonaktif</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary" id="btn-simpan-edit">Simpan Perubahan</button>
+      <button type="button" class="btn btn-outline mt-sm" id="btn-reset-pw">🔑 Reset Password</button>
+      <button type="button" class="btn btn-danger mt-sm" id="btn-hapus-agen">🗑 Hapus Agen</button>
+      <button type="button" class="btn btn-ghost mt-sm" id="btn-batal-edit">Batal</button>
+    </form>
+  </div>
+</div>
+
+<script type="module">
+  import { requireAuth, buatAgenBaru, editAgen, hapusAgen, resetPasswordAgen, cekUsernameTersedia } from '../assets/js/auth.js';
+  import { listenDaftarAgen } from '../assets/js/db.js';
+  import { showToast, showConfirm, setButtonLoading } from '../assets/js/utils.js';
+
+  const pageLoading = document.getElementById('page-loading');
+  const appWrapper  = document.getElementById('app-wrapper');
+
+  let daftarAgen = [];
+  let agenDipilih = null;
+
+  (async () => {
+    await requireAuth('owner');
+    listenDaftarAgen((data) => {
+      daftarAgen = data;
+      render();
+    });
+    pageLoading.classList.add('hidden');
+    appWrapper.classList.remove('hidden');
+  })();
+
+  function render() {
+    const container = document.getElementById('list-agen');
+
+    if (daftarAgen.length === 0) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-title">Belum ada agen</div><div class="empty-sub">Tap tombol ➕ untuk menambah agen</div></div>`;
+      return;
+    }
+
+    container.innerHTML = daftarAgen.map((a, idx) => `
+      <div class="list-item fade-in" data-idx="${idx}">
+        <div class="list-item-icon">${a.aktif ? '👤' : '🚫'}</div>
+        <div class="list-item-body">
+          <div class="list-item-title">${a.nama_lengkap}</div>
+          <div class="list-item-sub">@${a.username}</div>
+          <div class="list-item-meta">${a.nomor_wa || '-'}</div>
+        </div>
+        <div class="list-item-right">
+          <span class="badge ${a.aktif ? 'badge-done' : 'badge-belum'}">${a.aktif ? 'Aktif' : 'Nonaktif'}</span>
+        </div>
+      </div>
+    `).join('');
+
+    container.querySelectorAll('.list-item').forEach(item => {
+      item.addEventListener('click', () => {
+        agenDipilih = daftarAgen[Number(item.dataset.idx)];
+        bukaModalEdit(agenDipilih);
+      });
+    });
+  }
+
+  function bukaModalEdit(a) {
+    document.getElementById('edit-username').value = a.username;
+    document.getElementById('edit-nama').value = a.nama_lengkap;
+    document.getElementById('edit-wa').value = a.nomor_wa || '';
+    document.getElementById('edit-status').value = String(a.aktif);
+    document.getElementById('modal-edit-agen').classList.add('active');
+  }
+
+  document.getElementById('btn-batal-edit').addEventListener('click', () => {
+    document.getElementById('modal-edit-agen').classList.remove('active');
+  });
+
+  document.getElementById('form-edit-agen').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const nama_lengkap = document.getElementById('edit-nama').value.trim();
+    const nomor_wa = document.getElementById('edit-wa').value.trim();
+    const aktif = document.getElementById('edit-status').value === 'true';
+
+    const btn = document.getElementById('btn-simpan-edit');
+    setButtonLoading(btn, true);
+
+    const result = await editAgen(agenDipilih.id, { nama_lengkap, nomor_wa, aktif });
+
+    setButtonLoading(btn, false, 'Simpan Perubahan');
+
+    if (result.success) {
+      showToast('Data agen berhasil diperbarui', 'success');
+      document.getElementById('modal-edit-agen').classList.remove('active');
+    } else {
+      showToast(result.message || 'Gagal menyimpan perubahan', 'error');
+    }
+  });
+
+  document.getElementById('btn-reset-pw').addEventListener('click', async () => {
+    const passwordBaru = prompt('Masukkan password baru untuk ' + agenDipilih.nama_lengkap + ' (minimal 6 karakter):');
+    if (!passwordBaru) return;
+    if (passwordBaru.length < 6) {
+      showToast('Password minimal 6 karakter', 'error');
+      return;
+    }
+    const result = await resetPasswordAgen(agenDipilih.id, passwordBaru);
+    if (result.success) {
+      showToast('Password berhasil di-reset', 'success');
+    } else {
+      showToast(result.message || 'Gagal reset password', 'error');
+    }
+  });
+
+  document.getElementById('btn-hapus-agen').addEventListener('click', async () => {
+    const ok = await showConfirm({
+      icon: '🗑', title: 'Hapus Agen Ini?',
+      message: `${agenDipilih.nama_lengkap} akan dihapus permanen beserta akses loginnya.`,
+      labelOk: 'Ya, Hapus', tipOk: 'danger'
+    });
+    if (!ok) return;
+
+    const result = await hapusAgen(agenDipilih.id);
+    if (result.success) {
+      showToast('Agen berhasil dihapus', 'success');
+      document.getElementById('modal-edit-agen').classList.remove('active');
+    } else {
+      showToast(result.message || 'Gagal menghapus agen', 'error');
+    }
+  });
+
+  /* ── MODAL TAMBAH AGEN ── */
+  const modalTambah = document.getElementById('modal-tambah-agen');
+  document.getElementById('btn-tambah-agen').addEventListener('click', () => {
+    modalTambah.classList.add('active');
+  });
+  document.getElementById('btn-batal-agen').addEventListener('click', () => {
+    modalTambah.classList.remove('active');
+    document.getElementById('form-tambah-agen').reset();
+  });
+
+  document.getElementById('form-tambah-agen').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const nama_lengkap = document.getElementById('input-nama').value.trim();
+    const username = document.getElementById('input-username').value.trim().toLowerCase().replace(/\s+/g, '_');
+    const password = document.getElementById('input-password').value;
+    const nomor_wa = document.getElementById('input-wa').value.trim();
+
+    if (!nama_lengkap || !username || !password || !nomor_wa) {
+      showToast('Semua field wajib diisi', 'error');
+      return;
+    }
+    if (password.length < 6) {
+      showToast('Password minimal 6 karakter', 'error');
+      return;
+    }
+
+    const btn = document.getElementById('btn-simpan-agen');
+    setButtonLoading(btn, true);
+
+    const tersedia = await cekUsernameTersedia(username);
+    if (!tersedia) {
+      setButtonLoading(btn, false, 'Simpan Agen');
+      showToast('Username sudah digunakan, pilih username lain', 'error');
+      return;
+    }
+
+    const result = await buatAgenBaru({ username, password, nama_lengkap, nomor_wa });
+
+    setButtonLoading(btn, false, 'Simpan Agen');
+
+    if (result.success) {
+      showToast('Agen baru berhasil ditambahkan', 'success');
+      modalTambah.classList.remove('active');
+      document.getElementById('form-tambah-agen').reset();
+    } else {
+      showToast(result.message || 'Gagal menambahkan agen', 'error');
+    }
+  });
+</script>
+</body>
+</html>

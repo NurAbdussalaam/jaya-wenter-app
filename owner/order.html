@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Order Masuk — Jaya Wenter App</title>
+<meta name="theme-color" content="#1565C0">
+<link rel="manifest" href="../manifest.json">
+<link rel="stylesheet" href="../assets/css/main.css">
+<!-- ══════════════════════════════════════════════════════════
+     MODE DEBUG (ERUDA) — Console mini untuk HP
+     Aktif HANYA jika URL diakhiri ?debug=1
+     Hapus blok ini nanti setelah selesai setup index Firebase.
+     ══════════════════════════════════════════════════════════ -->
+<script>
+  if (window.location.search.includes('debug=1')) {
+    document.write('<script src="https://cdn.jsdelivr.net/npm/eruda"><\/script>');
+    document.write('<script>window.onload = function(){ eruda.init(); }<\/script>');
+  }
+</script>
+
+</head>
+<body>
+
+<div id="page-loading" class="page-loading">
+  <div class="app-name">🧺 Jaya Wenter App</div>
+  <div class="spinner"></div>
+</div>
+
+<div class="app-wrapper hidden" id="app-wrapper">
+  <header class="app-header">
+    <button class="back-btn" onclick="window.location.href='index.html'">←</button>
+    <div class="header-title">
+      <h1>Order Masuk</h1>
+    </div>
+  </header>
+
+  <div class="page-content">
+
+    <div class="filter-tabs">
+      <button class="filter-tab active" data-filter="semua">Semua</button>
+      <button class="filter-tab" data-filter="pending">Pending</button>
+      <button class="filter-tab" data-filter="dijemput">Dijemput</button>
+      <button class="filter-tab" data-filter="selesai">Selesai</button>
+    </div>
+
+    <div id="list-order">
+      <div class="loading-spinner"><div class="spinner"></div> Memuat data...</div>
+    </div>
+
+  </div>
+
+  <div class="safe-area-bottom"></div>
+</div>
+
+<!-- Modal Detail Order -->
+<div class="modal-overlay" id="modal-detail">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Detail Order</div>
+    <div id="detail-content"></div>
+    <div class="d-flex gap-sm mt-md">
+      <button class="btn btn-ghost" id="btn-tutup-detail">Tutup</button>
+      <button class="btn btn-primary hidden" id="btn-set-dijemput">Tandai Dijemput</button>
+      <button class="btn btn-success hidden" id="btn-set-selesai">Tandai Selesai</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { requireAuth } from '../assets/js/auth.js';
+  import { listenSemuaOrders, updateStatusOrder } from '../assets/js/db.js';
+  import { formatTimestamp, formatWarna, showToast, DAFTAR_WARNA } from '../assets/js/utils.js';
+
+  const pageLoading = document.getElementById('page-loading');
+  const appWrapper  = document.getElementById('app-wrapper');
+
+  let semuaOrder = [];
+  let filterAktif = 'semua';
+  let orderDipilih = null;
+
+  (async () => {
+    await requireAuth('owner');
+
+    listenSemuaOrders((orders) => {
+      semuaOrder = orders;
+      render();
+    });
+
+    pageLoading.classList.add('hidden');
+    appWrapper.classList.remove('hidden');
+  })();
+
+  document.querySelectorAll('.filter-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      filterAktif = tab.dataset.filter;
+      render();
+    });
+  });
+
+  function render() {
+    const container = document.getElementById('list-order');
+    const data = filterAktif === 'semua' ? semuaOrder : semuaOrder.filter(o => o.status === filterAktif);
+
+    if (data.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">📭</div>
+          <div class="empty-title">Tidak ada order</div>
+        </div>`;
+      return;
+    }
+
+    const statusBadge = {
+      pending: '<span class="badge badge-pending">Pending</span>',
+      dijemput: '<span class="badge badge-process">Dijemput</span>',
+      selesai: '<span class="badge badge-done">Selesai</span>'
+    };
+
+    container.innerHTML = data.map((o, idx) => `
+      <div class="list-item fade-in" data-idx="${idx}" data-filter-source="${filterAktif}">
+        <div class="list-item-icon">🧺</div>
+        <div class="list-item-body">
+          <div class="list-item-title">${o.agen_nama}</div>
+          <div class="list-item-sub">${o.total_pieces} pcs — ${o.jumlah_pengguna} pelanggan</div>
+          <div class="list-item-meta">${formatTimestamp(o.created_at)} • ${o.jadwal_label || '-'}</div>
+        </div>
+        <div class="list-item-right">${statusBadge[o.status] || statusBadge.pending}</div>
+      </div>
+    `).join('');
+
+    container.querySelectorAll('.list-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const idx = Number(item.dataset.idx);
+        orderDipilih = data[idx];
+        tampilkanDetail(orderDipilih);
+      });
+    });
+  }
+
+  function tampilkanDetail(order) {
+    const warnaHtml = DAFTAR_WARNA
+      .filter(w => order.warna[w.key] > 0)
+      .map(w => `<div class="d-flex justify-between" style="padding:6px 0;">
+                    <span class="text-secondary">${w.label}</span>
+                    <span class="font-bold">${order.warna[w.key]}</span>
+                  </div>`).join('');
+
+    document.getElementById('detail-content').innerHTML = `
+      <div class="card mb-md">
+        <div class="d-flex justify-between mb-sm">
+          <span class="text-secondary text-sm">Agen</span>
+          <span class="font-bold">${order.agen_nama}</span>
+        </div>
+        <div class="d-flex justify-between mb-sm">
+          <span class="text-secondary text-sm">Jumlah Pengguna</span>
+          <span class="font-bold">${order.jumlah_pengguna} orang</span>
+        </div>
+        <div class="d-flex justify-between mb-sm">
+          <span class="text-secondary text-sm">Total Pieces</span>
+          <span class="font-bold">${order.total_pieces} pcs</span>
+        </div>
+        <div class="divider"></div>
+        ${warnaHtml}
+        <div class="divider"></div>
+        <div class="d-flex justify-between mb-sm">
+          <span class="text-secondary text-sm">Waktu Order</span>
+          <span class="font-bold text-sm">${formatTimestamp(order.created_at)}</span>
+        </div>
+        <div class="d-flex justify-between mb-sm">
+          <span class="text-secondary text-sm">Jadwal</span>
+          <span class="font-bold text-sm">${order.jadwal_label || '-'}</span>
+        </div>
+        ${order.catatan ? `
+        <div class="divider"></div>
+        <div class="text-secondary text-sm mb-sm">Catatan:</div>
+        <div class="text-sm">${order.catatan}</div>` : ''}
+      </div>
+    `;
+
+    const btnDijemput = document.getElementById('btn-set-dijemput');
+    const btnSelesai  = document.getElementById('btn-set-selesai');
+    btnDijemput.classList.toggle('hidden', order.status !== 'pending');
+    btnSelesai.classList.toggle('hidden', order.status === 'selesai');
+
+    document.getElementById('modal-detail').classList.add('active');
+  }
+
+  document.getElementById('btn-tutup-detail').addEventListener('click', () => {
+    document.getElementById('modal-detail').classList.remove('active');
+  });
+
+  document.getElementById('btn-set-dijemput').addEventListener('click', async () => {
+    await updateStatusOrder(orderDipilih.id, 'dijemput');
+    showToast('Status diubah menjadi Dijemput', 'success');
+    document.getElementById('modal-detail').classList.remove('active');
+  });
+
+  document.getElementById('btn-set-selesai').addEventListener('click', async () => {
+    await updateStatusOrder(orderDipilih.id, 'selesai');
+    showToast('Status diubah menjadi Selesai', 'success');
+    document.getElementById('modal-detail').classList.remove('active');
+  });
+</script>
+</body>
+</html>

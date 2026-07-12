@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Jaya Wenter App — Login</title>
+<meta name="theme-color" content="#1565C0">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="assets/icons/icon-192.png">
+<link rel="stylesheet" href="assets/css/main.css">
+
+<!-- ══════════════════════════════════════════════════════════
+     MODE DEBUG (ERUDA) — Console mini untuk HP
+     Aktif HANYA jika URL diakhiri ?debug=1
+     Contoh: https://jaya-wenter-app.web.app/index.html?debug=1
+     Hapus blok ini nanti setelah selesai setup index Firebase.
+     ══════════════════════════════════════════════════════════ -->
+<script>
+  if (window.location.search.includes('debug=1')) {
+    document.write('<script src="https://cdn.jsdelivr.net/npm/eruda"><\/script>');
+    document.write('<script>window.onload = function(){ eruda.init(); }<\/script>');
+  }
+</script>
+</head>
+<body>
+
+<div id="page-loading" class="page-loading">
+  <div class="app-name">🧺 Jaya Wenter App</div>
+  <div class="spinner"></div>
+</div>
+
+<div class="app-wrapper hidden" id="login-wrapper">
+  <div class="login-page">
+    <div class="login-logo">🧺</div>
+    <div class="login-title">Jaya Wenter App</div>
+    <div class="login-sub">Sistem Manajemen Usaha Wenter</div>
+
+    <form class="login-form" id="form-login">
+      <div class="form-group" id="group-username">
+        <label class="form-label">Username</label>
+        <input type="text" class="form-control" id="input-username"
+               placeholder="Masukkan username" autocomplete="username" required>
+        <div class="form-error">Username wajib diisi</div>
+      </div>
+
+      <div class="form-group" id="group-password">
+        <label class="form-label">Password</label>
+        <div class="password-wrapper">
+          <input type="password" class="form-control" id="input-password"
+                 placeholder="Masukkan password" autocomplete="current-password" required>
+          <button type="button" class="toggle-pw" id="toggle-pw" aria-label="Tampilkan password">👁</button>
+        </div>
+        <div class="form-error">Password wajib diisi</div>
+      </div>
+
+      <button type="submit" class="btn btn-primary" id="btn-login">
+        MASUK
+      </button>
+    </form>
+  </div>
+
+  <div class="text-center text-muted text-xs" style="padding-bottom: 24px;">
+    v1.0.0 — Jaya Wenter App
+  </div>
+
+  <div class="safe-area-bottom"></div>
+</div>
+
+<script type="module">
+  import { auth } from './assets/js/firebase-config.js';
+  import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { db } from './assets/js/firebase-config.js';
+  import { login, getLoginRedirect } from './assets/js/auth.js';
+  import { showToast, setButtonLoading, validateRequired } from './assets/js/utils.js';
+
+  const pageLoading  = document.getElementById('page-loading');
+  const loginWrapper = document.getElementById('login-wrapper');
+  const form         = document.getElementById('form-login');
+  const btnLogin     = document.getElementById('btn-login');
+  const togglePw     = document.getElementById('toggle-pw');
+  const inputPw      = document.getElementById('input-password');
+
+  /* Cek jika sudah login, redirect otomatis ke dashboard sesuai role */
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const role = userDoc.data().role;
+          window.location.href = getLoginRedirect(role);
+          return;
+        }
+      } catch (e) { /* lanjut tampilkan login jika gagal cek */ }
+    }
+    pageLoading.classList.add('hidden');
+    loginWrapper.classList.remove('hidden');
+  });
+
+  /* Daftarkan Service Worker untuk fitur PWA (installable + cache) */
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {
+        // Diamkan jika gagal register (misal saat dev tanpa HTTPS)
+      });
+    });
+  }
+
+  /* Toggle tampilkan/sembunyikan password */
+  togglePw.addEventListener('click', () => {
+    const isPw = inputPw.type === 'password';
+    inputPw.type = isPw ? 'text' : 'password';
+    togglePw.textContent = isPw ? '🙈' : '👁';
+  });
+
+  /* Submit form login */
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const username = document.getElementById('input-username').value.trim();
+    const password = document.getElementById('input-password').value;
+
+    const groupUser = document.getElementById('group-username');
+    const groupPw   = document.getElementById('group-password');
+    groupUser.classList.remove('has-error');
+    groupPw.classList.remove('has-error');
+
+    const errUser = validateRequired(username, 'Username');
+    const errPw   = validateRequired(password, 'Password');
+
+    if (errUser) groupUser.classList.add('has-error');
+    if (errPw)   groupPw.classList.add('has-error');
+    if (errUser || errPw) return;
+
+    setButtonLoading(btnLogin, true);
+
+    const result = await login(username, password);
+
+    if (result.success) {
+      showToast('Login berhasil!', 'success', 1500);
+      setTimeout(() => {
+        window.location.href = getLoginRedirect(result.role);
+      }, 400);
+    } else {
+      setButtonLoading(btnLogin, false, 'MASUK');
+      showToast(result.message, 'error');
+    }
+  });
+</script>
+</body>
+</html>

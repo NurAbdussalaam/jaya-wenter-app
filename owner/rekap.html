@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Rekap Order — Jaya Wenter App</title>
+<meta name="theme-color" content="#1565C0">
+<link rel="manifest" href="../manifest.json">
+<link rel="stylesheet" href="../assets/css/main.css">
+<!-- ══════════════════════════════════════════════════════════
+     MODE DEBUG (ERUDA) — Console mini untuk HP
+     Aktif HANYA jika URL diakhiri ?debug=1
+     Hapus blok ini nanti setelah selesai setup index Firebase.
+     ══════════════════════════════════════════════════════════ -->
+<script>
+  if (window.location.search.includes('debug=1')) {
+    document.write('<script src="https://cdn.jsdelivr.net/npm/eruda"><\/script>');
+    document.write('<script>window.onload = function(){ eruda.init(); }<\/script>');
+  }
+</script>
+
+</head>
+<body>
+
+<div id="page-loading" class="page-loading">
+  <div class="app-name">🧺 Jaya Wenter App</div>
+  <div class="spinner"></div>
+</div>
+
+<div class="app-wrapper hidden" id="app-wrapper">
+  <header class="app-header">
+    <button class="back-btn" onclick="window.location.href='index.html'">←</button>
+    <div class="header-title">
+      <h1>Rekap Order</h1>
+    </div>
+  </header>
+
+  <div class="page-content">
+
+    <div class="filter-tabs">
+      <button class="filter-tab active" data-periode="minggu">Mingguan</button>
+      <button class="filter-tab" data-periode="bulan">Bulanan</button>
+      <button class="filter-tab" data-periode="tahun">Tahunan</button>
+      <button class="filter-tab" data-periode="custom">Custom</button>
+    </div>
+
+    <!-- Custom Periode Picker -->
+    <div class="card mb-md hidden" id="custom-periode-box">
+      <div class="form-group">
+        <label class="form-label">Dari Tanggal</label>
+        <input type="date" class="form-control" id="input-tanggal-mulai">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Sampai Tanggal</label>
+        <input type="date" class="form-control" id="input-tanggal-akhir">
+      </div>
+      <button class="btn btn-primary" id="btn-terapkan-custom">Terapkan Filter</button>
+    </div>
+
+    <!-- Total Keseluruhan -->
+    <div class="card mb-md" style="background: var(--brand-primary); border-color: var(--brand-primary);">
+      <div class="text-center">
+        <div style="color:#BBDEFB; font-size:.8rem; font-weight:600;">TOTAL PIECES SELURUH AGEN</div>
+        <div style="color:#fff; font-size:2rem; font-weight:700;" id="total-keseluruhan">0</div>
+        <div style="color:#BBDEFB; font-size:.75rem;" id="periode-label">-</div>
+      </div>
+    </div>
+
+    <div class="section-header" style="margin-top:0;">
+      <div class="section-title">Rekap per Agen</div>
+    </div>
+
+    <div id="list-rekap-agen">
+      <div class="loading-spinner"><div class="spinner"></div> Memuat data...</div>
+    </div>
+
+  </div>
+
+  <div class="safe-area-bottom"></div>
+</div>
+
+<script type="module">
+  import { requireAuth } from '../assets/js/auth.js';
+  import { getRekapPerAgen } from '../assets/js/db.js';
+  import { showToast, getPeriodeRange, formatTanggalPendek } from '../assets/js/utils.js';
+
+  const pageLoading = document.getElementById('page-loading');
+  const appWrapper  = document.getElementById('app-wrapper');
+
+  let periodeAktif = 'minggu';
+
+  (async () => {
+    await requireAuth('owner');
+    await muatRekap();
+    pageLoading.classList.add('hidden');
+    appWrapper.classList.remove('hidden');
+  })();
+
+  document.querySelectorAll('.filter-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      periodeAktif = tab.dataset.periode;
+
+      const customBox = document.getElementById('custom-periode-box');
+      if (periodeAktif === 'custom') {
+        customBox.classList.remove('hidden');
+      } else {
+        customBox.classList.add('hidden');
+        muatRekap();
+      }
+    });
+  });
+
+  document.getElementById('btn-terapkan-custom').addEventListener('click', () => {
+    const mulai = document.getElementById('input-tanggal-mulai').value;
+    const akhir = document.getElementById('input-tanggal-akhir').value;
+
+    if (!mulai || !akhir) {
+      showToast('Pilih tanggal mulai dan akhir', 'error');
+      return;
+    }
+    if (mulai > akhir) {
+      showToast('Tanggal mulai harus sebelum tanggal akhir', 'error');
+      return;
+    }
+    muatRekap(mulai, akhir);
+  });
+
+  async function muatRekap(customMulai, customAkhir) {
+    const container = document.getElementById('list-rekap-agen');
+    container.innerHTML = `<div class="loading-spinner"><div class="spinner"></div> Memuat data...</div>`;
+
+    try {
+      let start, end;
+      if (customMulai && customAkhir) {
+        start = customMulai;
+        end = customAkhir;
+        document.getElementById('periode-label').textContent =
+          `${formatTanggalPendek(start)} — ${formatTanggalPendek(end)}`;
+      } else {
+        const range = getPeriodeRange(periodeAktif);
+        start = range.start;
+        end = range.end;
+        const labelMap = { minggu: 'Minggu Ini', bulan: 'Bulan Ini', tahun: 'Tahun Ini' };
+        document.getElementById('periode-label').textContent =
+          `${labelMap[periodeAktif] || ''} (${formatTanggalPendek(start)} — ${formatTanggalPendek(end)})`;
+      }
+
+      const rekap = await getRekapPerAgen(start, end);
+      const totalKeseluruhan = rekap.reduce((sum, r) => sum + r.total_pieces, 0);
+      document.getElementById('total-keseluruhan').textContent = `${totalKeseluruhan} pcs`;
+
+      if (rekap.length === 0) {
+        container.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-title">Tidak ada order pada periode ini</div></div>`;
+        return;
+      }
+
+      container.innerHTML = rekap.map((r, idx) => `
+        <div class="list-item fade-in">
+          <div class="list-item-icon">${idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '👤'}</div>
+          <div class="list-item-body">
+            <div class="list-item-title">${r.agen_nama}</div>
+            <div class="list-item-sub">${r.jumlah_order} kali order</div>
+          </div>
+          <div class="list-item-right">
+            <span class="font-bold text-lg text-brand">${r.total_pieces}</span>
+            <span class="text-xs text-muted">pieces</span>
+          </div>
+        </div>
+      `).join('');
+
+    } catch (e) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Gagal memuat data</div></div>`;
+    }
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "name": "jaya-wenter-api",
+  "version": "1.0.0",
+  "description": "Backend API Jaya Wenter — Express.js di Render (menggantikan Firebase Cloud Functions)",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^4.18.2",
+    "firebase-admin": "^13.10.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
+  }
+}

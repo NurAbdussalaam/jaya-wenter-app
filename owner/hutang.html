@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Hutang Agen — Jaya Wenter App</title>
+<meta name="theme-color" content="#1565C0">
+<link rel="manifest" href="../manifest.json">
+<link rel="stylesheet" href="../assets/css/main.css">
+<!-- ══════════════════════════════════════════════════════════
+     MODE DEBUG (ERUDA) — Console mini untuk HP
+     Aktif HANYA jika URL diakhiri ?debug=1
+     Hapus blok ini nanti setelah selesai setup index Firebase.
+     ══════════════════════════════════════════════════════════ -->
+<script>
+  if (window.location.search.includes('debug=1')) {
+    document.write('<script src="https://cdn.jsdelivr.net/npm/eruda"><\/script>');
+    document.write('<script>window.onload = function(){ eruda.init(); }<\/script>');
+  }
+</script>
+
+</head>
+<body>
+
+<div id="page-loading" class="page-loading">
+  <div class="app-name">🧺 Jaya Wenter App</div>
+  <div class="spinner"></div>
+</div>
+
+<div class="app-wrapper hidden" id="app-wrapper">
+  <header class="app-header">
+    <button class="back-btn" onclick="window.location.href='index.html'">←</button>
+    <div class="header-title">
+      <h1>Hutang Agen</h1>
+    </div>
+    <button class="btn-icon" id="btn-tambah-hutang" title="Catat Hutang">➕</button>
+  </header>
+
+  <div class="page-content">
+
+    <div class="stat-grid mb-md">
+      <div class="stat-card danger">
+        <div class="stat-value text-lg" id="stat-belum-lunas">-</div>
+        <div class="stat-label">Belum Lunas</div>
+      </div>
+      <div class="stat-card success">
+        <div class="stat-value text-lg" id="stat-lunas">-</div>
+        <div class="stat-label">Sudah Lunas</div>
+      </div>
+    </div>
+
+    <div class="filter-tabs">
+      <button class="filter-tab active" data-filter="semua">Semua</button>
+      <button class="filter-tab" data-filter="belum_lunas">Belum Lunas</button>
+      <button class="filter-tab" data-filter="sebagian">Sebagian</button>
+      <button class="filter-tab" data-filter="lunas">Lunas</button>
+    </div>
+
+    <div id="list-hutang">
+      <div class="loading-spinner"><div class="spinner"></div> Memuat data...</div>
+    </div>
+
+  </div>
+
+  <div class="safe-area-bottom"></div>
+</div>
+
+<!-- Modal Tambah Hutang -->
+<div class="modal-overlay" id="modal-tambah-hutang">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Catat Hutang Baru</div>
+    <form id="form-tambah-hutang">
+      <div class="form-group">
+        <label class="form-label">Pilih Agen</label>
+        <select class="form-control" id="input-agen" required>
+          <option value="">Memuat daftar agen...</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nama Pelanggan</label>
+        <input type="text" class="form-control" id="input-pelanggan" placeholder="Contoh: Budi" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Jumlah Pieces</label>
+        <input type="number" class="form-control" id="input-pieces" placeholder="Contoh: 5" min="1" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nilai Hutang (Rp)</label>
+        <input type="number" class="form-control" id="input-nilai" placeholder="Contoh: 50000" min="1" required>
+        <div class="form-hint" id="hint-harga-otomatis"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Catatan (Opsional)</label>
+        <textarea class="form-control" id="input-catatan-hutang" placeholder="Catatan tambahan..."></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary" id="btn-simpan-hutang">Simpan Hutang</button>
+      <button type="button" class="btn btn-ghost mt-sm" id="btn-batal-hutang">Batal</button>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Detail & Bayar -->
+<div class="modal-overlay" id="modal-detail-hutang">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Detail Hutang</div>
+    <div id="detail-hutang-content"></div>
+
+    <div class="divider-label">Riwayat Pembayaran</div>
+    <div id="list-pembayaran"></div>
+
+    <div class="divider"></div>
+
+    <form id="form-bayar">
+      <div class="form-group">
+        <label class="form-label">Tambah Pembayaran (Rp)</label>
+        <input type="number" class="form-control" id="input-nominal-bayar" placeholder="Contoh: 50000" min="1" required>
+      </div>
+      <button type="submit" class="btn btn-success" id="btn-simpan-bayar">💳 Catat Pembayaran</button>
+    </form>
+    <button type="button" class="btn btn-ghost mt-sm" id="btn-tutup-detail-hutang">Tutup</button>
+  </div>
+</div>
+
+<script type="module">
+  import { requireAuth } from '../assets/js/auth.js';
+  import {
+    listenSemuaHutang, tambahHutang, tambahPembayaran, getPembayaranByHutang,
+    getDaftarAgen, getSettings
+  } from '../assets/js/db.js';
+  import {
+    showToast, showConfirm, setButtonLoading, formatRupiah, formatTimestamp
+  } from '../assets/js/utils.js';
+
+  const pageLoading = document.getElementById('page-loading');
+  const appWrapper  = document.getElementById('app-wrapper');
+
+  let semuaHutang = [];
+  let filterAktif = 'semua';
+  let daftarAgen = [];
+  let hutangDipilih = null;
+  let settings = null;
+
+  (async () => {
+    const user = await requireAuth('owner');
+    settings = await getSettings();
+
+    daftarAgen = await getDaftarAgen();
+    isiDropdownAgen();
+
+    listenSemuaHutang((data) => {
+      semuaHutang = data;
+      render();
+      renderStatistik();
+    });
+
+    pageLoading.classList.add('hidden');
+    appWrapper.classList.remove('hidden');
+  })();
+
+  function isiDropdownAgen() {
+    const select = document.getElementById('input-agen');
+    select.innerHTML = '<option value="">Pilih agen</option>' +
+      daftarAgen.map(a => `<option value="${a.id}" data-nama="${a.nama_lengkap}">${a.nama_lengkap}</option>`).join('');
+  }
+
+  function renderStatistik() {
+    let belumLunas = 0, lunas = 0;
+    semuaHutang.forEach(h => {
+      const sisa = h.nilai_hutang - h.nilai_terbayar;
+      if (h.status === 'lunas') lunas += h.nilai_hutang;
+      else belumLunas += sisa;
+    });
+    document.getElementById('stat-belum-lunas').textContent = formatRupiah(belumLunas);
+    document.getElementById('stat-lunas').textContent = formatRupiah(lunas);
+  }
+
+  document.querySelectorAll('.filter-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      filterAktif = tab.dataset.filter;
+      render();
+    });
+  });
+
+  function render() {
+    const container = document.getElementById('list-hutang');
+    const data = filterAktif === 'semua' ? semuaHutang : semuaHutang.filter(h => h.status === filterAktif);
+
+    if (data.length === 0) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-title">Tidak ada data hutang</div></div>`;
+      return;
+    }
+
+    const statusBadge = {
+      belum_lunas: '<span class="badge badge-belum">Belum Lunas</span>',
+      sebagian: '<span class="badge badge-sebagian">Sebagian</span>',
+      lunas: '<span class="badge badge-lunas">Lunas</span>'
+    };
+
+    container.innerHTML = data.map((h, idx) => `
+      <div class="list-item fade-in" data-idx="${idx}">
+        <div class="list-item-icon">💳</div>
+        <div class="list-item-body">
+          <div class="list-item-title">${h.nama_pelanggan}</div>
+          <div class="list-item-sub">${h.agen_nama} • ${h.jumlah_pieces} pcs</div>
+          <div class="list-item-meta">Sisa: ${formatRupiah(h.nilai_hutang - h.nilai_terbayar)}</div>
+        </div>
+        <div class="list-item-right">${statusBadge[h.status] || ''}</div>
+      </div>
+    `).join('');
+
+    container.querySelectorAll('.list-item').forEach(item => {
+      item.addEventListener('click', () => {
+        hutangDipilih = data[Number(item.dataset.idx)];
+        tampilkanDetailHutang(hutangDipilih);
+      });
+    });
+  }
+
+  async function tampilkanDetailHutang(h) {
+    const sisa = h.nilai_hutang - h.nilai_terbayar;
+    const statusBadge = {
+      belum_lunas: '<span class="badge badge-belum">Belum Lunas</span>',
+      sebagian: '<span class="badge badge-sebagian">Sebagian</span>',
+      lunas: '<span class="badge badge-lunas">Lunas</span>'
+    };
+
+    document.getElementById('detail-hutang-content').innerHTML = `
+      <div class="card mb-md">
+        <div class="d-flex justify-between mb-sm">
+          <span class="font-bold text-lg">${h.nama_pelanggan}</span>
+          ${statusBadge[h.status]}
+        </div>
+        <div class="text-secondary text-sm mb-sm">Agen: ${h.agen_nama}</div>
+        <div class="divider"></div>
+        <div class="d-flex justify-between mb-sm">
+          <span class="text-secondary text-sm">Jumlah Pieces</span>
+          <span class="font-bold">${h.jumlah_pieces} pcs</span>
+        </div>
+        <div class="d-flex justify-between mb-sm">
+          <span class="text-secondary text-sm">Nilai Hutang</span>
+          <span class="font-bold">${formatRupiah(h.nilai_hutang)}</span>
+        </div>
+        <div class="d-flex justify-between mb-sm">
+          <span class="text-secondary text-sm">Terbayar</span>
+          <span class="font-bold text-success">${formatRupiah(h.nilai_terbayar)}</span>
+        </div>
+        <div class="d-flex justify-between">
+          <span class="text-secondary text-sm">Sisa</span>
+          <span class="font-bold text-danger">${formatRupiah(sisa)}</span>
+        </div>
+        ${h.catatan ? `<div class="divider"></div><div class="text-sm text-secondary">${h.catatan}</div>` : ''}
+      </div>
+    `;
+
+    const listPembayaran = document.getElementById('list-pembayaran');
+    listPembayaran.innerHTML = `<div class="loading-spinner"><div class="spinner"></div></div>`;
+
+    const formBayar = document.getElementById('form-bayar');
+    formBayar.classList.toggle('hidden', h.status === 'lunas');
+
+    document.getElementById('modal-detail-hutang').classList.add('active');
+
+    const pembayaranList = await getPembayaranByHutang(h.id);
+    if (pembayaranList.length === 0) {
+      listPembayaran.innerHTML = `<div class="text-muted text-sm text-center" style="padding:12px 0;">Belum ada pembayaran</div>`;
+    } else {
+      listPembayaran.innerHTML = pembayaranList.map(p => `
+        <div class="d-flex justify-between" style="padding:10px 0; border-bottom:1px solid var(--border-color);">
+          <span class="text-sm">${formatTimestamp(p.created_at)}</span>
+          <span class="font-bold text-success">${formatRupiah(p.nominal)}</span>
+        </div>
+      `).join('');
+    }
+  }
+
+  document.getElementById('btn-tutup-detail-hutang').addEventListener('click', () => {
+    document.getElementById('modal-detail-hutang').classList.remove('active');
+    document.getElementById('form-bayar').reset();
+  });
+
+  /* ── FORM BAYAR ── */
+  document.getElementById('form-bayar').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const nominal = Number(document.getElementById('input-nominal-bayar').value);
+
+    if (!nominal || nominal < 1) {
+      showToast('Nominal pembayaran wajib diisi', 'error');
+      return;
+    }
+
+    const sisa = hutangDipilih.nilai_hutang - hutangDipilih.nilai_terbayar;
+    if (nominal > sisa) {
+      const ok = await showConfirm({
+        icon: '⚠️', title: 'Nominal Melebihi Sisa Hutang',
+        message: `Sisa hutang hanya ${formatRupiah(sisa)}. Lanjutkan tetap mencatat ${formatRupiah(nominal)}?`,
+        labelOk: 'Ya, Lanjutkan', tipOk: 'primary'
+      });
+      if (!ok) return;
+    }
+
+    const btn = document.getElementById('btn-simpan-bayar');
+    setButtonLoading(btn, true);
+
+    const result = await tambahPembayaran({
+      hutang_id: hutangDipilih.id,
+      agen_uid: hutangDipilih.agen_uid,
+      agen_nama: hutangDipilih.agen_nama,
+      nama_pelanggan: hutangDipilih.nama_pelanggan,
+      nominal
+    });
+
+    setButtonLoading(btn, false, '💳 Catat Pembayaran');
+
+    if (result.success) {
+      showToast(`Pembayaran tercatat. Status: ${labelStatus(result.statusBaru)}`, 'success');
+      document.getElementById('modal-detail-hutang').classList.remove('active');
+      document.getElementById('form-bayar').reset();
+    } else {
+      showToast(result.message || 'Gagal mencatat pembayaran', 'error');
+    }
+  });
+
+  function labelStatus(s) {
+    return { belum_lunas: 'Belum Lunas', sebagian: 'Sebagian', lunas: 'Lunas' }[s] || s;
+  }
+
+  /* ── MODAL TAMBAH HUTANG ── */
+  const modalTambah = document.getElementById('modal-tambah-hutang');
+  document.getElementById('btn-tambah-hutang').addEventListener('click', () => {
+    modalTambah.classList.add('active');
+  });
+  document.getElementById('btn-batal-hutang').addEventListener('click', () => {
+    modalTambah.classList.remove('active');
+    document.getElementById('form-tambah-hutang').reset();
+  });
+
+  /* Auto-hitung nilai hutang berdasarkan harga per pieces (jika ada setting) */
+  document.getElementById('input-pieces').addEventListener('input', (e) => {
+    const pieces = Number(e.target.value) || 0;
+    const harga = settings?.harga_per_pieces || 0;
+    const hint = document.getElementById('hint-harga-otomatis');
+
+    if (harga > 0 && pieces > 0) {
+      const estimasi = pieces * harga;
+      document.getElementById('input-nilai').value = estimasi;
+      hint.textContent = `Otomatis: ${pieces} pcs × ${formatRupiah(harga)} = ${formatRupiah(estimasi)} (bisa diedit manual)`;
+    } else {
+      hint.textContent = 'Harga per pieces belum disetting di Pengaturan';
+    }
+  });
+
+  document.getElementById('form-tambah-hutang').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const agenSelect = document.getElementById('input-agen');
+    const agenUid = agenSelect.value;
+    const agenNama = agenSelect.selectedOptions[0]?.dataset.nama;
+    const pelanggan = document.getElementById('input-pelanggan').value.trim();
+    const pieces = Number(document.getElementById('input-pieces').value);
+    const nilai = Number(document.getElementById('input-nilai').value);
+    const catatan = document.getElementById('input-catatan-hutang').value.trim();
+
+    if (!agenUid || !pelanggan || !pieces || !nilai) {
+      showToast('Semua field wajib diisi', 'error');
+      return;
+    }
+
+    const btn = document.getElementById('btn-simpan-hutang');
+    setButtonLoading(btn, true);
+
+    const result = await tambahHutang({
+      agen_uid: agenUid, agen_nama: agenNama,
+      nama_pelanggan: pelanggan, jumlah_pieces: pieces,
+      nilai_hutang: nilai, catatan
+    });
+
+    setButtonLoading(btn, false, 'Simpan Hutang');
+
+    if (result.success) {
+      showToast('Hutang berhasil dicatat', 'success');
+      modalTambah.classList.remove('active');
+      document.getElementById('form-tambah-hutang').reset();
+    } else {
+      showToast('Gagal mencatat hutang', 'error');
+    }
+  });
+</script>
+</body>
+</html>

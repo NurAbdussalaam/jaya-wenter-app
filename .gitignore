@@ -1,0 +1,36 @@
+# ── CREDENTIALS (JANGAN PERNAH COMMIT) ──────────────────────
+kunci.json
+*.json.key
+service-account*.json
+.env
+.env.*
+!.env.example
+
+# ── DEPENDENCIES ─────────────────────────────────────────────
+node_modules/
+functions/node_modules/
+
+# ── FIREBASE CLI (tidak digunakan dalam arsitektur ini) ───────
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# ── OS & EDITOR ──────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ── FILE DOKUMENTASI (exclude dari deploy Vercel) ────────────
+PANDUAN.md
+*.md
+!README.md
+
+# Backup files (jangan commit)
+backups/*.json
+
+# Migration mapping files (auto-generated, jangan commit)
+tools/migrate/agent_mapping.json
+tools/migrate/tagihan_mapping.json
+tools/migrate/verify_report.json

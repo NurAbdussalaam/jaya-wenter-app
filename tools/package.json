@@ -1,0 +1,18 @@
+{
+  "name": "jaya-wenter-tools",
+  "version": "1.0.0",
+  "description": "Development Database Toolkit — Jaya Wenter",
+  "scripts": {
+    "backup":  "node tools/backup-firestore.js",
+    "restore": "node tools/restore-firestore.js",
+    "seed":    "node tools/seed-firestore.js",
+    "reset":   "node tools/reset-firestore.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.10.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "notes": "Jalankan dari root folder project: node tools/backup-firestore.js"
+}

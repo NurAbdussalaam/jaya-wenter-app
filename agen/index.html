@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Dashboard Agen — Jaya Wenter App</title>
+<meta name="theme-color" content="#1565C0">
+<link rel="manifest" href="../manifest.json">
+<link rel="stylesheet" href="../assets/css/main.css">
+<!-- ══════════════════════════════════════════════════════════
+     MODE DEBUG (ERUDA) — Console mini untuk HP
+     Aktif HANYA jika URL diakhiri ?debug=1
+     Hapus blok ini nanti setelah selesai setup index Firebase.
+     ══════════════════════════════════════════════════════════ -->
+<script>
+  if (window.location.search.includes('debug=1')) {
+    document.write('<script src="https://cdn.jsdelivr.net/npm/eruda"><\/script>');
+    document.write('<script>window.onload = function(){ eruda.init(); }<\/script>');
+  }
+</script>
+
+</head>
+<body>
+
+<div id="page-loading" class="page-loading">
+  <div class="app-name">🧺 Jaya Wenter App</div>
+  <div class="spinner"></div>
+</div>
+
+<div class="app-wrapper hidden" id="app-wrapper">
+  <header class="app-header">
+    <div class="header-title">
+      <h1 id="header-greeting">Halo, Agen 👋</h1>
+      <p id="header-date">-</p>
+    </div>
+    <button class="btn-icon" id="btn-logout" title="Keluar">🚪</button>
+  </header>
+
+  <div class="page-content">
+
+    <!-- Info Jadwal Berikutnya -->
+    <div class="jadwal-box" id="jadwal-info">
+      <div class="jadwal-label">📅 JADWAL KUNJUNGAN BERIKUTNYA</div>
+      <div class="jadwal-value" id="jadwal-value">Memuat...</div>
+    </div>
+
+    <!-- Tombol Order Wenter -->
+    <a href="order.html" class="card fade-in" style="background: var(--brand-primary); text-decoration:none; display:block; text-align:center; padding: 28px 16px; margin-bottom: 16px; box-shadow: 0 6px 20px rgba(21,101,192,.35);">
+      <div style="font-size: 2rem;">📦</div>
+      <div style="color:#fff; font-size:1.1rem; font-weight:700; margin-top:8px;">ORDER WENTER</div>
+      <div style="color:#BBDEFB; font-size:.8rem; margin-top:4px;">Tap untuk input order baru</div>
+    </a>
+
+    <!-- Riwayat Order -->
+    <div class="section-header">
+      <div class="section-title">Riwayat Order Saya</div>
+    </div>
+
+    <div id="list-order">
+      <div class="loading-spinner"><div class="spinner"></div> Memuat data...</div>
+    </div>
+
+    <!-- Ganti Password -->
+    <div class="list-item mt-md" id="btn-ganti-password">
+      <div class="list-item-icon">🔒</div>
+      <div class="list-item-body">
+        <div class="list-item-title">Ganti Password</div>
+        <div class="list-item-sub">Ubah password akun Anda</div>
+      </div>
+      <div style="font-size:1.2rem; color:var(--text-muted);">›</div>
+    </div>
+
+  </div>
+
+  <div class="safe-area-bottom"></div>
+</div>
+
+<!-- Modal Ganti Password -->
+<div class="modal-overlay" id="modal-password">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Ganti Password</div>
+    <form id="form-ganti-password">
+      <div class="form-group">
+        <label class="form-label">Password Lama</label>
+        <input type="password" class="form-control" id="pw-lama" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password Baru</label>
+        <input type="password" class="form-control" id="pw-baru" minlength="6" required>
+        <div class="form-hint">Minimal 6 karakter</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Konfirmasi Password Baru</label>
+        <input type="password" class="form-control" id="pw-konfirmasi" minlength="6" required>
+      </div>
+      <button type="submit" class="btn btn-primary" id="btn-simpan-password">Simpan Password</button>
+      <button type="button" class="btn btn-ghost mt-sm" id="btn-batal-password">Batal</button>
+    </form>
+  </div>
+</div>
+
+<script type="module">
+  import { requireAuth, logout, gantiPasswordSendiri } from '../assets/js/auth.js';
+  import { getOrdersByAgen } from '../assets/js/db.js';
+  import { tentukanJadwalTerdekat } from '../assets/js/jadwal.js';
+  import {
+    showToast, showConfirm, setButtonLoading,
+    formatTimestamp, formatWarna, getTanggalHariIni, getJamSekarang
+  } from '../assets/js/utils.js';
+
+  const pageLoading = document.getElementById('page-loading');
+  const appWrapper  = document.getElementById('app-wrapper');
+
+  let currentUser = null;
+
+  (async () => {
+    currentUser = await requireAuth('agen');
+
+    document.getElementById('header-greeting').textContent = `Halo, ${currentUser.nama_lengkap} 👋`;
+    document.getElementById('header-date').textContent = new Date().toLocaleDateString('id-ID', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+    });
+
+    await muatJadwalBerikutnya();
+    await muatRiwayatOrder();
+
+    pageLoading.classList.add('hidden');
+    appWrapper.classList.remove('hidden');
+  })();
+
+  async function muatJadwalBerikutnya() {
+    try {
+      const info = await tentukanJadwalTerdekat(getTanggalHariIni(), getJamSekarang());
+      document.getElementById('jadwal-value').textContent = info
+        ? `${info.jadwal_label}`
+        : 'Belum ada jadwal disetting owner';
+    } catch (e) {
+      document.getElementById('jadwal-value').textContent = 'Gagal memuat jadwal';
+    }
+  }
+
+  async function muatRiwayatOrder() {
+    const container = document.getElementById('list-order');
+    try {
+      const orders = await getOrdersByAgen(currentUser.uid, 20);
+
+      if (orders.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">📭</div>
+            <div class="empty-title">Belum ada order</div>
+            <div class="empty-sub">Order wenter Anda akan muncul di sini</div>
+          </div>`;
+        return;
+      }
+
+      const statusBadge = {
+        pending: '<span class="badge badge-pending">Menunggu</span>',
+        dijemput: '<span class="badge badge-process">Dijemput</span>',
+        selesai: '<span class="badge badge-done">Selesai</span>'
+      };
+
+      container.innerHTML = orders.map(o => `
+        <div class="list-item fade-in">
+          <div class="list-item-icon">🧺</div>
+          <div class="list-item-body">
+            <div class="list-item-title">${formatTimestamp(o.created_at)}</div>
+            <div class="list-item-sub">${o.total_pieces} pieces — ${ringkasWarna(o.warna)}</div>
+            <div class="list-item-meta">Jadwal: ${o.jadwal_label || '-'}</div>
+          </div>
+          <div class="list-item-right">
+            ${statusBadge[o.status] || statusBadge.pending}
+          </div>
+        </div>
+      `).join('');
+    } catch (e) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Gagal memuat data</div></div>`;
+    }
+  }
+
+  function ringkasWarna(warna) {
+    const map = { hitam: 'Hitam', biru_tua: 'Biru Tua', hijau_tua: 'Hijau Tua', coklat_tua: 'Coklat Tua', abu_tua: 'Abu-Abu Tua' };
+    return Object.entries(warna || {})
+      .filter(([k, v]) => v > 0)
+      .map(([k, v]) => `${map[k]}(${v})`)
+      .join(' ');
+  }
+
+  /* Logout */
+  document.getElementById('btn-logout').addEventListener('click', async () => {
+    const ok = await showConfirm({
+      icon: '🚪', title: 'Keluar Aplikasi?',
+      message: 'Anda akan keluar dari sesi ini.',
+      labelOk: 'Ya, Keluar', tipOk: 'danger'
+    });
+    if (ok) await logout('../index.html');
+  });
+
+  /* Modal Ganti Password */
+  const modalPassword = document.getElementById('modal-password');
+  document.getElementById('btn-ganti-password').addEventListener('click', () => {
+    modalPassword.classList.add('active');
+  });
+  document.getElementById('btn-batal-password').addEventListener('click', () => {
+    modalPassword.classList.remove('active');
+  });
+
+  document.getElementById('form-ganti-password').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const pwLama = document.getElementById('pw-lama').value;
+    const pwBaru = document.getElementById('pw-baru').value;
+    const pwKonfirmasi = document.getElementById('pw-konfirmasi').value;
+
+    if (pwBaru !== pwKonfirmasi) {
+      showToast('Konfirmasi password tidak cocok', 'error');
+      return;
+    }
+
+    const btn = document.getElementById('btn-simpan-password');
+    setButtonLoading(btn, true);
+
+    const result = await gantiPasswordSendiri(pwLama, pwBaru);
+
+    setButtonLoading(btn, false, 'Simpan Password');
+
+    if (result.success) {
+      showToast('Password berhasil diubah', 'success');
+      modalPassword.classList.remove('active');
+      document.getElementById('form-ganti-password').reset();
+    } else {
+      showToast(result.message, 'error');
+    }
+  });
+</script>
+</body>
+</html>

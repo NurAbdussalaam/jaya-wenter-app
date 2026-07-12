@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Jadwal Kunjungan — Jaya Wenter App</title>
+<meta name="theme-color" content="#1565C0">
+<link rel="manifest" href="../manifest.json">
+<link rel="stylesheet" href="../assets/css/main.css">
+<!-- ══════════════════════════════════════════════════════════
+     MODE DEBUG (ERUDA) — Console mini untuk HP
+     Aktif HANYA jika URL diakhiri ?debug=1
+     Hapus blok ini nanti setelah selesai setup index Firebase.
+     ══════════════════════════════════════════════════════════ -->
+<script>
+  if (window.location.search.includes('debug=1')) {
+    document.write('<script src="https://cdn.jsdelivr.net/npm/eruda"><\/script>');
+    document.write('<script>window.onload = function(){ eruda.init(); }<\/script>');
+  }
+</script>
+
+</head>
+<body>
+
+<div id="page-loading" class="page-loading">
+  <div class="app-name">🧺 Jaya Wenter App</div>
+  <div class="spinner"></div>
+</div>
+
+<div class="app-wrapper hidden" id="app-wrapper">
+  <header class="app-header">
+    <button class="back-btn" onclick="window.location.href='index.html'">←</button>
+    <div class="header-title">
+      <h1>Jadwal Kunjungan</h1>
+    </div>
+    <button class="btn-icon" id="btn-tambah-jadwal" title="Tambah Jadwal">➕</button>
+  </header>
+
+  <div class="page-content">
+
+    <div class="filter-tabs">
+      <button class="filter-tab active" data-tab="setting">Setting Jadwal</button>
+      <button class="filter-tab" data-tab="rekap">Rekap Kunjungan</button>
+    </div>
+
+    <!-- TAB: Setting Jadwal -->
+    <div id="tab-setting">
+      <div class="section-header" style="margin-top:0;">
+        <div class="section-title">Jadwal Antar Jemput Aktif</div>
+      </div>
+      <div id="list-jadwal">
+        <div class="loading-spinner"><div class="spinner"></div> Memuat...</div>
+      </div>
+    </div>
+
+    <!-- TAB: Rekap Kunjungan -->
+    <div id="tab-rekap" class="hidden">
+      <div class="section-header" style="margin-top:0;">
+        <div class="section-title">Kunjungan Mendatang</div>
+      </div>
+      <div id="list-rekap">
+        <div class="loading-spinner"><div class="spinner"></div> Memuat...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="safe-area-bottom"></div>
+</div>
+
+<!-- Modal Tambah Jadwal -->
+<div class="modal-overlay" id="modal-tambah-jadwal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Tambah Jadwal Antar Jemput</div>
+    <form id="form-tambah-jadwal">
+      <div class="form-group">
+        <label class="form-label">Hari</label>
+        <select class="form-control" id="input-hari" required>
+          <option value="">Pilih hari</option>
+          <option value="Senin">Senin</option>
+          <option value="Selasa">Selasa</option>
+          <option value="Rabu">Rabu</option>
+          <option value="Kamis">Kamis</option>
+          <option value="Jumat">Jumat</option>
+          <option value="Sabtu">Sabtu</option>
+          <option value="Minggu">Minggu</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Jam</label>
+        <input type="time" class="form-control" id="input-jam" required>
+      </div>
+      <button type="submit" class="btn btn-primary" id="btn-simpan-jadwal">Simpan Jadwal</button>
+      <button type="button" class="btn btn-ghost mt-sm" id="btn-batal-jadwal">Batal</button>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Detail Rekap -->
+<div class="modal-overlay" id="modal-rekap-detail">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="rekap-detail-title">Detail Kunjungan</div>
+    <div id="rekap-detail-content"></div>
+    <button type="button" class="btn btn-ghost mt-md" id="btn-tutup-rekap">Tutup</button>
+  </div>
+</div>
+
+<script type="module">
+  import { requireAuth } from '../assets/js/auth.js';
+  import {
+    getJadwalAktif, tambahJadwal, hapusJadwal, toggleJadwal, getRekapKunjunganMendatang
+  } from '../assets/js/jadwal.js';
+  import { showToast, showConfirm, setButtonLoading, formatTanggalPendek } from '../assets/js/utils.js';
+
+  const pageLoading = document.getElementById('page-loading');
+  const appWrapper  = document.getElementById('app-wrapper');
+
+  let daftarJadwal = [];
+  let daftarRekap = [];
+
+  (async () => {
+    await requireAuth('owner');
+    await muatJadwal();
+    pageLoading.classList.add('hidden');
+    appWrapper.classList.remove('hidden');
+  })();
+
+  /* ── TAB SWITCHING ── */
+  document.querySelectorAll('.filter-tab').forEach(tab => {
+    tab.addEventListener('click', async () => {
+      document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+
+      const target = tab.dataset.tab;
+      document.getElementById('tab-setting').classList.toggle('hidden', target !== 'setting');
+      document.getElementById('tab-rekap').classList.toggle('hidden', target !== 'rekap');
+
+      if (target === 'rekap' && daftarRekap.length === 0) {
+        await muatRekap();
+      }
+    });
+  });
+
+  /* ── MUAT JADWAL ── */
+  async function muatJadwal() {
+    const container = document.getElementById('list-jadwal');
+    try {
+      daftarJadwal = await getJadwalAktif();
+
+      if (daftarJadwal.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">📅</div>
+            <div class="empty-title">Belum ada jadwal</div>
+            <div class="empty-sub">Tap tombol ➕ untuk menambah jadwal</div>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = daftarJadwal.map((j, idx) => `
+        <div class="card mb-sm fade-in">
+          <div class="d-flex justify-between align-center">
+            <div>
+              <div class="font-bold">${j.hari}</div>
+              <div class="text-secondary text-sm">${j.jam.replace(':', '.')} WIB</div>
+            </div>
+            <div class="d-flex gap-sm align-center">
+              <button class="btn-icon btn-toggle-jadwal" data-idx="${idx}" style="background: ${j.aktif ? 'var(--color-success-bg)' : 'var(--bg-tertiary)'}; color: ${j.aktif ? 'var(--color-success)' : 'var(--text-muted)'};" title="Aktif/Nonaktif">
+                ${j.aktif ? '✓' : '○'}
+              </button>
+              <button class="btn-icon btn-hapus-jadwal" data-idx="${idx}" style="background: var(--color-danger-bg); color: var(--color-danger);" title="Hapus">🗑</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      container.querySelectorAll('.btn-toggle-jadwal').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const j = daftarJadwal[Number(btn.dataset.idx)];
+          await toggleJadwal(j.id, !j.aktif);
+          showToast(`Jadwal ${!j.aktif ? 'diaktifkan' : 'dinonaktifkan'}`, 'success');
+          await muatJadwal();
+        });
+      });
+
+      container.querySelectorAll('.btn-hapus-jadwal').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const j = daftarJadwal[Number(btn.dataset.idx)];
+          const ok = await showConfirm({
+            icon: '🗑', title: 'Hapus Jadwal?',
+            message: `Jadwal ${j.hari} ${j.jam} akan dihapus permanen.`,
+            labelOk: 'Ya, Hapus', tipOk: 'danger'
+          });
+          if (ok) {
+            await hapusJadwal(j.id);
+            showToast('Jadwal dihapus', 'success');
+            await muatJadwal();
+          }
+        });
+      });
+
+    } catch (e) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Gagal memuat jadwal</div></div>`;
+    }
+  }
+
+  /* ── MUAT REKAP KUNJUNGAN ── */
+  async function muatRekap() {
+    const container = document.getElementById('list-rekap');
+    try {
+      daftarRekap = await getRekapKunjunganMendatang();
+
+      if (daftarRekap.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">📭</div>
+            <div class="empty-title">Belum ada jadwal disetting</div>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = daftarRekap.map((r, idx) => `
+        <div class="list-item fade-in" data-idx="${idx}">
+          <div class="list-item-icon">📅</div>
+          <div class="list-item-body">
+            <div class="list-item-title">${r.label}</div>
+            <div class="list-item-sub">${formatTanggalPendek(r.tanggal_kunjungan)}</div>
+            <div class="list-item-meta">${r.jumlah_agen} agen • ${r.total_pieces} pieces</div>
+          </div>
+          <div class="list-item-right">
+            <span class="badge badge-pending">${r.jumlah_agen} agen</span>
+          </div>
+        </div>
+      `).join('');
+
+      container.querySelectorAll('.list-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const r = daftarRekap[Number(item.dataset.idx)];
+          tampilkanDetailRekap(r);
+        });
+      });
+
+    } catch (e) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Gagal memuat rekap</div></div>`;
+    }
+  }
+
+  function tampilkanDetailRekap(r) {
+    document.getElementById('rekap-detail-title').textContent = `${r.label} — ${formatTanggalPendek(r.tanggal_kunjungan)}`;
+
+    if (r.orders.length === 0) {
+      document.getElementById('rekap-detail-content').innerHTML = `
+        <div class="empty-state"><div class="empty-icon">📭</div><div class="empty-title">Belum ada order untuk jadwal ini</div></div>`;
+    } else {
+      // Kelompokkan per agen
+      const perAgen = {};
+      r.orders.forEach(o => {
+        if (!perAgen[o.agen_nama]) perAgen[o.agen_nama] = 0;
+        perAgen[o.agen_nama] += o.total_pieces || 0;
+      });
+
+      document.getElementById('rekap-detail-content').innerHTML = `
+        <div class="card mb-sm">
+          <div class="d-flex justify-between mb-sm">
+            <span class="text-secondary text-sm">Total Agen</span>
+            <span class="font-bold">${r.jumlah_agen} agen</span>
+          </div>
+          <div class="d-flex justify-between">
+            <span class="text-secondary text-sm">Total Pieces</span>
+            <span class="font-bold">${r.total_pieces} pcs</span>
+          </div>
+        </div>
+        <div class="section-title text-sm mb-sm">Daftar Agen Dikunjungi:</div>
+        ${Object.entries(perAgen).map(([nama, pieces]) => `
+          <div class="d-flex justify-between" style="padding:10px 0; border-bottom:1px solid var(--border-color);">
+            <span>${nama}</span>
+            <span class="font-bold">${pieces} pcs</span>
+          </div>
+        `).join('')}
+      `;
+    }
+
+    document.getElementById('modal-rekap-detail').classList.add('active');
+  }
+
+  document.getElementById('btn-tutup-rekap').addEventListener('click', () => {
+    document.getElementById('modal-rekap-detail').classList.remove('active');
+  });
+
+  /* ── MODAL TAMBAH JADWAL ── */
+  const modalTambah = document.getElementById('modal-tambah-jadwal');
+  document.getElementById('btn-tambah-jadwal').addEventListener('click', () => {
+    modalTambah.classList.add('active');
+  });
+  document.getElementById('btn-batal-jadwal').addEventListener('click', () => {
+    modalTambah.classList.remove('active');
+    document.getElementById('form-tambah-jadwal').reset();
+  });
+
+  document.getElementById('form-tambah-jadwal').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const hari = document.getElementById('input-hari').value;
+    const jam = document.getElementById('input-jam').value;
+
+    if (!hari || !jam) {
+      showToast('Hari dan jam wajib diisi', 'error');
+      return;
+    }
+
+    const btn = document.getElementById('btn-simpan-jadwal');
+    setButtonLoading(btn, true);
+
+    const result = await tambahJadwal(hari, jam);
+
+    setButtonLoading(btn, false, 'Simpan Jadwal');
+
+    if (result.success) {
+      showToast('Jadwal berhasil ditambahkan', 'success');
+      modalTambah.classList.remove('active');
+      document.getElementById('form-tambah-jadwal').reset();
+      await muatJadwal();
+    } else {
+      showToast(result.message, 'error');
+    }
+  });
+</script>
+</body>
+</html>

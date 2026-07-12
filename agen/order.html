@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Order Wenter Baru — Jaya Wenter App</title>
+<meta name="theme-color" content="#1565C0">
+<link rel="manifest" href="../manifest.json">
+<link rel="stylesheet" href="../assets/css/main.css">
+<!-- ══════════════════════════════════════════════════════════
+     MODE DEBUG (ERUDA) — Console mini untuk HP
+     Aktif HANYA jika URL diakhiri ?debug=1
+     Hapus blok ini nanti setelah selesai setup index Firebase.
+     ══════════════════════════════════════════════════════════ -->
+<script>
+  if (window.location.search.includes('debug=1')) {
+    document.write('<script src="https://cdn.jsdelivr.net/npm/eruda"><\/script>');
+    document.write('<script>window.onload = function(){ eruda.init(); }<\/script>');
+  }
+</script>
+
+</head>
+<body>
+
+<div id="page-loading" class="page-loading">
+  <div class="app-name">🧺 Jaya Wenter App</div>
+  <div class="spinner"></div>
+</div>
+
+<div class="app-wrapper hidden" id="app-wrapper">
+  <header class="app-header">
+    <button class="back-btn" onclick="window.location.href='index.html'">←</button>
+    <div class="header-title">
+      <h1>Order Wenter Baru</h1>
+    </div>
+  </header>
+
+  <div class="page-content">
+
+    <form id="form-order">
+
+      <div class="form-group">
+        <label class="form-label">Jumlah Pengguna Jasa</label>
+        <input type="number" class="form-control" id="input-jumlah-pengguna"
+               placeholder="Contoh: 3" min="1" inputmode="numeric" required>
+        <div class="form-error">Jumlah pengguna wajib diisi</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Total Pieces Pakaian</label>
+        <input type="number" class="form-control" id="input-total-pieces"
+               placeholder="Contoh: 8" min="1" inputmode="numeric" required>
+        <div class="form-error">Total pieces wajib diisi</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Pilihan Warna</label>
+
+        <div class="pieces-total-bar">
+          <span class="pieces-label">Total dipilih</span>
+          <span class="pieces-count" id="pieces-running-total">0 / 0 pcs</span>
+        </div>
+
+        <div id="warna-list"></div>
+        <div class="form-error" id="warna-error" style="display:none;">Total warna harus sama dengan total pieces</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Catatan Tambahan (Opsional)</label>
+        <textarea class="form-control" id="input-catatan" placeholder="Tulis catatan tambahan jika ada..."></textarea>
+      </div>
+
+      <div class="jadwal-box">
+        <div class="jadwal-label">📅 JADWAL KUNJUNGAN</div>
+        <div class="jadwal-value" id="jadwal-preview">Memuat jadwal...</div>
+      </div>
+
+      <button type="submit" class="btn btn-success" id="btn-submit-order">
+        📱 ORDER WENTER
+      </button>
+      <div class="text-center text-muted text-xs mt-sm">
+        Data akan tersimpan &amp; WhatsApp terbuka otomatis
+      </div>
+
+    </form>
+
+  </div>
+
+  <div class="safe-area-bottom"></div>
+</div>
+
+<script type="module">
+  import { requireAuth } from '../assets/js/auth.js';
+  import { buatOrder, getSettings } from '../assets/js/db.js';
+  import { bukaWhatsAppOrder } from '../assets/js/whatsapp.js';
+  import { tentukanJadwalTerdekat } from '../assets/js/jadwal.js';
+  import {
+    showToast, showConfirm, setButtonLoading, DAFTAR_WARNA,
+    getTanggalHariIni, getJamSekarang
+  } from '../assets/js/utils.js';
+
+  const pageLoading = document.getElementById('page-loading');
+  const appWrapper  = document.getElementById('app-wrapper');
+
+  let currentUser = null;
+  let settings = null;
+  const warnaJumlah = {};
+  DAFTAR_WARNA.forEach(w => warnaJumlah[w.key] = 0);
+
+  (async () => {
+    currentUser = await requireAuth('agen');
+    settings = await getSettings();
+
+    renderWarnaList();
+    await tampilkanPreviewJadwal();
+
+    pageLoading.classList.add('hidden');
+    appWrapper.classList.remove('hidden');
+  })();
+
+  /* ── RENDER STEPPER WARNA ── */
+  function renderWarnaList() {
+    const container = document.getElementById('warna-list');
+    container.innerHTML = DAFTAR_WARNA.map(w => `
+      <div class="warna-row">
+        <div class="warna-dot" style="background:${w.hex};"></div>
+        <div class="warna-label">${w.label}</div>
+        <div class="stepper">
+          <button type="button" class="stepper-btn" data-action="kurang" data-key="${w.key}">−</button>
+          <div class="stepper-val" id="val-${w.key}">0</div>
+          <button type="button" class="stepper-btn" data-action="tambah" data-key="${w.key}">+</button>
+        </div>
+      </div>
+    `).join('');
+
+    container.querySelectorAll('.stepper-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.key;
+        const action = btn.dataset.action;
+        if (action === 'tambah') warnaJumlah[key]++;
+        else if (warnaJumlah[key] > 0) warnaJumlah[key]--;
+
+        document.getElementById(`val-${key}`).textContent = warnaJumlah[key];
+        updateRunningTotal();
+      });
+    });
+  }
+
+  /* ── UPDATE TOTAL WARNA VS TOTAL PIECES ── */
+  function updateRunningTotal() {
+    const totalWarnaInput = Object.values(warnaJumlah).reduce((a, b) => a + b, 0);
+    const totalPieces = Number(document.getElementById('input-total-pieces').value) || 0;
+
+    const el = document.getElementById('pieces-running-total');
+    el.textContent = `${totalWarnaInput} / ${totalPieces} pcs`;
+
+    el.classList.remove('match', 'exceed', 'under');
+    if (totalPieces === 0) {
+      // belum diisi, netral
+    } else if (totalWarnaInput === totalPieces) {
+      el.classList.add('match');
+    } else if (totalWarnaInput > totalPieces) {
+      el.classList.add('exceed');
+    } else {
+      el.classList.add('under');
+    }
+  }
+
+  document.getElementById('input-total-pieces').addEventListener('input', updateRunningTotal);
+
+  /* ── PREVIEW JADWAL ── */
+  async function tampilkanPreviewJadwal() {
+    try {
+      const info = await tentukanJadwalTerdekat(getTanggalHariIni(), getJamSekarang());
+      document.getElementById('jadwal-preview').textContent = info
+        ? info.jadwal_label
+        : 'Belum ada jadwal disetting owner';
+    } catch (e) {
+      document.getElementById('jadwal-preview').textContent = 'Gagal memuat jadwal';
+    }
+  }
+
+  /* ── SUBMIT ORDER ── */
+  document.getElementById('form-order').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const jumlahPengguna = Number(document.getElementById('input-jumlah-pengguna').value);
+    const totalPieces = Number(document.getElementById('input-total-pieces').value);
+    const catatan = document.getElementById('input-catatan').value.trim();
+    const totalWarnaInput = Object.values(warnaJumlah).reduce((a, b) => a + b, 0);
+
+    const warnaError = document.getElementById('warna-error');
+    warnaError.style.display = 'none';
+
+    if (!jumlahPengguna || jumlahPengguna < 1) {
+      showToast('Jumlah pengguna jasa wajib diisi', 'error');
+      return;
+    }
+    if (!totalPieces || totalPieces < 1) {
+      showToast('Total pieces wajib diisi', 'error');
+      return;
+    }
+    if (totalWarnaInput !== totalPieces) {
+      warnaError.style.display = 'block';
+      showToast(`Total warna (${totalWarnaInput}) harus sama dengan total pieces (${totalPieces})`, 'error');
+      return;
+    }
+
+    const konfirmasi = await showConfirm({
+      icon: '📦',
+      title: 'Kirim Order Wenter?',
+      message: `${totalPieces} pieces akan disimpan dan WhatsApp akan terbuka otomatis.`,
+      labelOk: 'Ya, Kirim Order',
+      tipOk: 'success'
+    });
+
+    if (!konfirmasi) return;
+
+    const btn = document.getElementById('btn-submit-order');
+    setButtonLoading(btn, true);
+
+    try {
+      const result = await buatOrder({
+        agen_uid: currentUser.uid,
+        agen_nama: currentUser.nama_lengkap,
+        jumlah_pengguna: jumlahPengguna,
+        warna: { ...warnaJumlah },
+        catatan
+      });
+
+      if (result.success) {
+        showToast('Order berhasil disimpan!', 'success', 2000);
+
+        if (settings.nomor_wa_owner) {
+          bukaWhatsAppOrder(settings.nomor_wa_owner, {
+            nama_agen: currentUser.nama_lengkap,
+            jumlah_pengguna: jumlahPengguna,
+            total_pieces: totalPieces,
+            warna: warnaJumlah,
+            catatan,
+            tanggal_order: result.data.tanggal_order,
+            jam_order: result.data.jam_order
+          });
+        } else {
+          showToast('Nomor WhatsApp owner belum disetting', 'error');
+        }
+
+        setTimeout(() => { window.location.href = 'index.html'; }, 1200);
+      }
+    } catch (err) {
+      setButtonLoading(btn, false, '📱 ORDER WENTER');
+      showToast('Gagal menyimpan order: ' + err.message, 'error');
+    }
+  });
+</script>
+</body>
+</html>

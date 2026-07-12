@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Pengaturan — Jaya Wenter App</title>
+<meta name="theme-color" content="#1565C0">
+<link rel="manifest" href="../manifest.json">
+<link rel="stylesheet" href="../assets/css/main.css">
+<!-- ══════════════════════════════════════════════════════════
+     MODE DEBUG (ERUDA) — Console mini untuk HP
+     Aktif HANYA jika URL diakhiri ?debug=1
+     Hapus blok ini nanti setelah selesai setup index Firebase.
+     ══════════════════════════════════════════════════════════ -->
+<script>
+  if (window.location.search.includes('debug=1')) {
+    document.write('<script src="https://cdn.jsdelivr.net/npm/eruda"><\/script>');
+    document.write('<script>window.onload = function(){ eruda.init(); }<\/script>');
+  }
+</script>
+
+</head>
+<body>
+
+<div id="page-loading" class="page-loading">
+  <div class="app-name">🧺 Jaya Wenter App</div>
+  <div class="spinner"></div>
+</div>
+
+<div class="app-wrapper hidden" id="app-wrapper">
+  <header class="app-header">
+    <button class="back-btn" onclick="window.location.href='index.html'">←</button>
+    <div class="header-title">
+      <h1>Pengaturan</h1>
+    </div>
+  </header>
+
+  <div class="page-content">
+
+    <form id="form-settings">
+
+      <div class="section-header" style="margin-top:0;">
+        <div class="section-title">Identitas Usaha</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Nama Usaha</label>
+        <input type="text" class="form-control" id="input-nama-usaha" placeholder="Jaya Wenter App">
+      </div>
+
+      <div class="section-header">
+        <div class="section-title">Integrasi WhatsApp</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Nomor WhatsApp Owner</label>
+        <input type="text" class="form-control" id="input-nomor-wa" placeholder="Contoh: 081234567890" required>
+        <div class="form-hint">Semua order dari agen akan dikirim ke nomor ini</div>
+      </div>
+
+      <div class="section-header">
+        <div class="section-title">Harga Layanan</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Harga per Pieces (Rp)</label>
+        <input type="number" class="form-control" id="input-harga-pieces" placeholder="Contoh: 10000" min="0">
+        <div class="form-hint">Digunakan untuk menghitung nilai hutang otomatis. Bisa diedit manual saat input.</div>
+      </div>
+
+      <button type="submit" class="btn btn-primary" id="btn-simpan-settings">Simpan Pengaturan</button>
+
+    </form>
+
+    <div class="divider"></div>
+
+    <div class="section-header" style="margin-top:0;">
+      <div class="section-title">Informasi Aplikasi</div>
+    </div>
+
+    <div class="card">
+      <div class="d-flex justify-between mb-sm">
+        <span class="text-secondary text-sm">Nama Aplikasi</span>
+        <span class="font-bold">Jaya Wenter App</span>
+      </div>
+      <div class="d-flex justify-between">
+        <span class="text-secondary text-sm">Versi</span>
+        <span class="font-bold">1.0.0</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="safe-area-bottom"></div>
+</div>
+
+<script type="module">
+  import { requireAuth } from '../assets/js/auth.js';
+  import { getSettings, updateSettings } from '../assets/js/db.js';
+  import { showToast, setButtonLoading } from '../assets/js/utils.js';
+
+  const pageLoading = document.getElementById('page-loading');
+  const appWrapper  = document.getElementById('app-wrapper');
+
+  (async () => {
+    await requireAuth('owner');
+
+    const settings = await getSettings();
+    document.getElementById('input-nama-usaha').value = settings.nama_usaha || '';
+    document.getElementById('input-nomor-wa').value = settings.nomor_wa_owner || '';
+    document.getElementById('input-harga-pieces').value = settings.harga_per_pieces || '';
+
+    pageLoading.classList.add('hidden');
+    appWrapper.classList.remove('hidden');
+  })();
+
+  document.getElementById('form-settings').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const nama_usaha = document.getElementById('input-nama-usaha').value.trim() || 'Jaya Wenter App';
+    const nomor_wa_owner = document.getElementById('input-nomor-wa').value.trim();
+    const harga_per_pieces = Number(document.getElementById('input-harga-pieces').value) || 0;
+
+    if (!nomor_wa_owner) {
+      showToast('Nomor WhatsApp owner wajib diisi', 'error');
+      return;
+    }
+
+    const btn = document.getElementById('btn-simpan-settings');
+    setButtonLoading(btn, true);
+
+    await updateSettings({ nama_usaha, nomor_wa_owner, harga_per_pieces });
+
+    setButtonLoading(btn, false, 'Simpan Pengaturan');
+    showToast('Pengaturan berhasil disimpan', 'success');
+  });
+</script>
+</body>
+</html>

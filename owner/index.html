@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Dashboard Owner — Jaya Wenter App</title>
+<meta name="theme-color" content="#1565C0">
+<link rel="manifest" href="../manifest.json">
+<link rel="stylesheet" href="../assets/css/main.css">
+<!-- ══════════════════════════════════════════════════════════
+     MODE DEBUG (ERUDA) — Console mini untuk HP
+     Aktif HANYA jika URL diakhiri ?debug=1
+     Hapus blok ini nanti setelah selesai setup index Firebase.
+     ══════════════════════════════════════════════════════════ -->
+<script>
+  if (window.location.search.includes('debug=1')) {
+    document.write('<script src="https://cdn.jsdelivr.net/npm/eruda"><\/script>');
+    document.write('<script>window.onload = function(){ eruda.init(); }<\/script>');
+  }
+</script>
+
+</head>
+<body>
+
+<div id="page-loading" class="page-loading">
+  <div class="app-name">🧺 Jaya Wenter App</div>
+  <div class="spinner"></div>
+</div>
+
+<div class="app-wrapper hidden" id="app-wrapper">
+  <header class="app-header">
+    <div class="header-title">
+      <h1>Dashboard Owner</h1>
+      <p id="header-date">-</p>
+    </div>
+    <button class="btn-icon" onclick="window.location.href='pengaturan.html'" title="Pengaturan">⚙️</button>
+  </header>
+
+  <div class="page-content">
+
+    <!-- Statistik -->
+    <div class="stat-grid-3" style="display:grid; grid-template-columns: repeat(3,1fr); gap:8px; margin-bottom:16px;">
+      <div class="stat-card brand">
+        <div class="stat-value" id="stat-order-hari-ini">-</div>
+        <div class="stat-label">Order Hari Ini</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="stat-pieces-hari-ini">-</div>
+        <div class="stat-label">Total Pieces</div>
+      </div>
+      <div class="stat-card danger">
+        <div class="stat-value text-sm" id="stat-total-hutang">-</div>
+        <div class="stat-label">Total Hutang</div>
+      </div>
+    </div>
+
+    <!-- Menu Grid -->
+    <div class="section-header" style="margin-top:0;">
+      <div class="section-title">Menu Utama</div>
+    </div>
+
+    <div class="menu-grid">
+      <a href="order.html" class="menu-item">
+        <div class="menu-item-icon">📋</div>
+        <div class="menu-item-label">Order Masuk</div>
+        <div class="menu-item-sub" id="menu-order-sub">Memuat...</div>
+      </a>
+      <a href="jadwal.html" class="menu-item">
+        <div class="menu-item-icon">📅</div>
+        <div class="menu-item-label">Jadwal Kunjungan</div>
+        <div class="menu-item-sub">Atur &amp; lihat rekap</div>
+      </a>
+      <a href="hutang.html" class="menu-item">
+        <div class="menu-item-icon">💳</div>
+        <div class="menu-item-label">Hutang Agen</div>
+        <div class="menu-item-sub" id="menu-hutang-sub">Memuat...</div>
+      </a>
+      <a href="rekap.html" class="menu-item">
+        <div class="menu-item-icon">📊</div>
+        <div class="menu-item-label">Rekap Order</div>
+        <div class="menu-item-sub">Mingguan/Bulanan</div>
+      </a>
+      <a href="keuangan.html" class="menu-item">
+        <div class="menu-item-icon">💰</div>
+        <div class="menu-item-label">Keuangan</div>
+        <div class="menu-item-sub">Laba/rugi usaha</div>
+      </a>
+      <a href="agen.html" class="menu-item">
+        <div class="menu-item-icon">👥</div>
+        <div class="menu-item-label">Kelola Agen</div>
+        <div class="menu-item-sub" id="menu-agen-sub">Memuat...</div>
+      </a>
+    </div>
+
+    <!-- Order Terbaru -->
+    <div class="section-header">
+      <div class="section-title">Order Terbaru</div>
+      <a href="order.html" class="section-link">Lihat semua</a>
+    </div>
+
+    <div id="list-order-terbaru">
+      <div class="loading-spinner"><div class="spinner"></div> Memuat data...</div>
+    </div>
+
+    <button class="btn btn-ghost mt-md" id="btn-logout">🚪 Keluar</button>
+
+  </div>
+
+  <div class="safe-area-bottom"></div>
+</div>
+
+<script type="module">
+  import { requireAuth, logout } from '../assets/js/auth.js';
+  import { listenOrdersHariIni, getDaftarAgen, getTotalHutangSemuaAgen } from '../assets/js/db.js';
+  import { formatTimestamp, formatRupiah, showConfirm } from '../assets/js/utils.js';
+
+  const pageLoading = document.getElementById('page-loading');
+  const appWrapper  = document.getElementById('app-wrapper');
+
+  (async () => {
+    await requireAuth('owner');
+
+    document.getElementById('header-date').textContent = new Date().toLocaleDateString('id-ID', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+    });
+
+    await muatStatistikSampingan();
+    listenOrdersHariIni((orders) => {
+      renderStatistikOrder(orders);
+      renderOrderTerbaru(orders);
+    });
+
+    pageLoading.classList.add('hidden');
+    appWrapper.classList.remove('hidden');
+  })();
+
+  async function muatStatistikSampingan() {
+    try {
+      const agenList = await getDaftarAgen();
+      document.getElementById('menu-agen-sub').textContent = `${agenList.length} agen aktif`;
+    } catch (e) {
+      document.getElementById('menu-agen-sub').textContent = 'Kelola data agen';
+    }
+
+    try {
+      const hutang = await getTotalHutangSemuaAgen();
+      document.getElementById('stat-total-hutang').textContent = formatRupiah(hutang.totalBelumLunas);
+      document.getElementById('menu-hutang-sub').textContent =
+        hutang.totalBelumLunas > 0 ? `${formatRupiah(hutang.totalBelumLunas)} belum lunas` : 'Semua lunas';
+    } catch (e) {
+      document.getElementById('stat-total-hutang').textContent = 'Rp0';
+    }
+  }
+
+  function renderStatistikOrder(orders) {
+    document.getElementById('stat-order-hari-ini').textContent = orders.length;
+    const totalPieces = orders.reduce((sum, o) => sum + (o.total_pieces || 0), 0);
+    document.getElementById('stat-pieces-hari-ini').textContent = totalPieces;
+    document.getElementById('menu-order-sub').textContent = `${orders.length} order hari ini`;
+  }
+
+  function renderOrderTerbaru(orders) {
+    const container = document.getElementById('list-order-terbaru');
+
+    if (orders.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">📭</div>
+          <div class="empty-title">Belum ada order hari ini</div>
+        </div>`;
+      return;
+    }
+
+    const statusBadge = {
+      pending: '<span class="badge badge-pending">Pending</span>',
+      dijemput: '<span class="badge badge-process">Dijemput</span>',
+      selesai: '<span class="badge badge-done">Selesai</span>'
+    };
+
+    container.innerHTML = orders.slice(0, 8).map(o => `
+      <div class="list-item fade-in">
+        <div class="list-item-icon">🧺</div>
+        <div class="list-item-body">
+          <div class="list-item-title">${o.agen_nama}</div>
+          <div class="list-item-sub">${o.total_pieces} pcs — ${formatTimestamp(o.created_at)}</div>
+          <div class="list-item-meta">Jadwal: ${o.jadwal_label || '-'}</div>
+        </div>
+        <div class="list-item-right">${statusBadge[o.status] || statusBadge.pending}</div>
+      </div>
+    `).join('');
+  }
+
+  document.getElementById('btn-logout').addEventListener('click', async () => {
+    const ok = await showConfirm({
+      icon: '🚪', title: 'Keluar Aplikasi?',
+      message: 'Anda akan keluar dari sesi owner.',
+      labelOk: 'Ya, Keluar', tipOk: 'danger'
+    });
+    if (ok) await logout('../index.html');
+  });
+</script>
+</body>
+</html>

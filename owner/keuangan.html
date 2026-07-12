@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Keuangan Usaha — Jaya Wenter App</title>
+<meta name="theme-color" content="#1565C0">
+<link rel="manifest" href="../manifest.json">
+<link rel="stylesheet" href="../assets/css/main.css">
+<!-- ══════════════════════════════════════════════════════════
+     MODE DEBUG (ERUDA) — Console mini untuk HP
+     Aktif HANYA jika URL diakhiri ?debug=1
+     Hapus blok ini nanti setelah selesai setup index Firebase.
+     ══════════════════════════════════════════════════════════ -->
+<script>
+  if (window.location.search.includes('debug=1')) {
+    document.write('<script src="https://cdn.jsdelivr.net/npm/eruda"><\/script>');
+    document.write('<script>window.onload = function(){ eruda.init(); }<\/script>');
+  }
+</script>
+
+</head>
+<body>
+
+<div id="page-loading" class="page-loading">
+  <div class="app-name">🧺 Jaya Wenter App</div>
+  <div class="spinner"></div>
+</div>
+
+<div class="app-wrapper hidden" id="app-wrapper">
+  <header class="app-header">
+    <button class="back-btn" onclick="window.location.href='index.html'">←</button>
+    <div class="header-title">
+      <h1>Keuangan Usaha</h1>
+    </div>
+    <button class="btn-icon" id="btn-tambah-transaksi" title="Tambah Transaksi">➕</button>
+  </header>
+
+  <div class="page-content">
+
+    <div class="filter-tabs">
+      <button class="filter-tab" data-periode="hari">Harian</button>
+      <button class="filter-tab" data-periode="minggu">Mingguan</button>
+      <button class="filter-tab active" data-periode="bulan">Bulanan</button>
+      <button class="filter-tab" data-periode="custom">Custom</button>
+    </div>
+
+    <div class="card mb-md hidden" id="custom-periode-box">
+      <div class="form-group">
+        <label class="form-label">Dari Tanggal</label>
+        <input type="date" class="form-control" id="input-tanggal-mulai">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Sampai Tanggal</label>
+        <input type="date" class="form-control" id="input-tanggal-akhir">
+      </div>
+      <button class="btn btn-primary" id="btn-terapkan-custom">Terapkan Filter</button>
+    </div>
+
+    <!-- Laba/Rugi -->
+    <div class="laba-card" id="laba-card">
+      <div class="text-secondary text-sm font-bold">LABA / RUGI</div>
+      <div class="text-xl font-bold" id="nilai-laba" style="margin-top:4px;">Rp0</div>
+      <div class="text-xs text-muted" id="periode-label" style="margin-top:2px;">-</div>
+    </div>
+
+    <!-- Pemasukan vs Pengeluaran -->
+    <div class="keuangan-summary">
+      <div class="keuangan-card pemasukan">
+        <div class="k-label">PEMASUKAN</div>
+        <div class="k-value" id="total-pemasukan">Rp0</div>
+      </div>
+      <div class="keuangan-card pengeluaran">
+        <div class="k-label">PENGELUARAN</div>
+        <div class="k-value" id="total-pengeluaran">Rp0</div>
+      </div>
+    </div>
+
+    <div class="section-header">
+      <div class="section-title">Riwayat Transaksi</div>
+    </div>
+
+    <div id="list-transaksi">
+      <div class="loading-spinner"><div class="spinner"></div> Memuat data...</div>
+    </div>
+
+  </div>
+
+  <div class="safe-area-bottom"></div>
+</div>
+
+<!-- Modal Tambah Transaksi -->
+<div class="modal-overlay" id="modal-tambah-transaksi">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Tambah Transaksi</div>
+    <form id="form-transaksi">
+      <div class="form-group">
+        <label class="form-label">Jenis Transaksi</label>
+        <div class="d-flex gap-sm">
+          <button type="button" class="btn btn-outline jenis-btn active" data-jenis="pemasukan" style="flex:1;">📈 Pemasukan</button>
+          <button type="button" class="btn btn-outline jenis-btn" data-jenis="pengeluaran" style="flex:1;">📉 Pengeluaran</button>
+        </div>
+        <input type="hidden" id="input-jenis" value="pemasukan">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tanggal</label>
+        <input type="date" class="form-control" id="input-tanggal-transaksi" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Keterangan</label>
+        <input type="text" class="form-control" id="input-keterangan" placeholder="Contoh: Pembayaran agen / Beli sabun" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nominal (Rp)</label>
+        <input type="number" class="form-control" id="input-nominal-transaksi" placeholder="Contoh: 150000" min="1" required>
+      </div>
+      <button type="submit" class="btn btn-primary" id="btn-simpan-transaksi">Simpan Transaksi</button>
+      <button type="button" class="btn btn-ghost mt-sm" id="btn-batal-transaksi">Batal</button>
+    </form>
+  </div>
+</div>
+
+<script type="module">
+  import { requireAuth } from '../assets/js/auth.js';
+  import { tambahKeuangan, getKeuanganByPeriode, hapusKeuangan } from '../assets/js/db.js';
+  import {
+    showToast, showConfirm, setButtonLoading, formatRupiah,
+    getPeriodeRange, getTanggalHariIni, formatTanggalPendek
+  } from '../assets/js/utils.js';
+
+  const pageLoading = document.getElementById('page-loading');
+  const appWrapper  = document.getElementById('app-wrapper');
+
+  let periodeAktif = 'bulan';
+  let semuaTransaksi = [];
+
+  (async () => {
+    await requireAuth('owner');
+    document.getElementById('input-tanggal-transaksi').value = getTanggalHariIni();
+    await muatData();
+    pageLoading.classList.add('hidden');
+    appWrapper.classList.remove('hidden');
+  })();
+
+  document.querySelectorAll('.filter-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      periodeAktif = tab.dataset.periode;
+
+      const customBox = document.getElementById('custom-periode-box');
+      if (periodeAktif === 'custom') {
+        customBox.classList.remove('hidden');
+      } else {
+        customBox.classList.add('hidden');
+        muatData();
+      }
+    });
+  });
+
+  document.getElementById('btn-terapkan-custom').addEventListener('click', () => {
+    const mulai = document.getElementById('input-tanggal-mulai').value;
+    const akhir = document.getElementById('input-tanggal-akhir').value;
+    if (!mulai || !akhir) { showToast('Pilih tanggal mulai dan akhir', 'error'); return; }
+    if (mulai > akhir) { showToast('Tanggal mulai harus sebelum tanggal akhir', 'error'); return; }
+    muatData(mulai, akhir);
+  });
+
+  async function muatData(customMulai, customAkhir) {
+    const container = document.getElementById('list-transaksi');
+    container.innerHTML = `<div class="loading-spinner"><div class="spinner"></div> Memuat data...</div>`;
+
+    try {
+      let start, end;
+      if (customMulai && customAkhir) {
+        start = customMulai; end = customAkhir;
+        document.getElementById('periode-label').textContent = `${formatTanggalPendek(start)} — ${formatTanggalPendek(end)}`;
+      } else {
+        const range = getPeriodeRange(periodeAktif);
+        start = range.start; end = range.end;
+        const labelMap = { hari: 'Hari Ini', minggu: 'Minggu Ini', bulan: 'Bulan Ini' };
+        document.getElementById('periode-label').textContent =
+          `${labelMap[periodeAktif] || ''} (${formatTanggalPendek(start)} — ${formatTanggalPendek(end)})`;
+      }
+
+      semuaTransaksi = await getKeuanganByPeriode(start, end);
+
+      const totalPemasukan = semuaTransaksi.filter(t => t.jenis === 'pemasukan').reduce((s, t) => s + t.nominal, 0);
+      const totalPengeluaran = semuaTransaksi.filter(t => t.jenis === 'pengeluaran').reduce((s, t) => s + t.nominal, 0);
+      const laba = totalPemasukan - totalPengeluaran;
+
+      document.getElementById('total-pemasukan').textContent = formatRupiah(totalPemasukan);
+      document.getElementById('total-pengeluaran').textContent = formatRupiah(totalPengeluaran);
+
+      const labaCard = document.getElementById('laba-card');
+      labaCard.classList.remove('positif', 'negatif');
+      labaCard.classList.add(laba >= 0 ? 'positif' : 'negatif');
+      document.getElementById('nilai-laba').textContent = (laba >= 0 ? '+' : '') + formatRupiah(laba);
+      document.getElementById('nilai-laba').className = 'text-xl font-bold ' + (laba >= 0 ? 'text-success' : 'text-danger');
+
+      renderTransaksi();
+
+    } catch (e) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Gagal memuat data</div></div>`;
+    }
+  }
+
+  function renderTransaksi() {
+    const container = document.getElementById('list-transaksi');
+
+    if (semuaTransaksi.length === 0) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-title">Belum ada transaksi</div></div>`;
+      return;
+    }
+
+    container.innerHTML = semuaTransaksi.map((t, idx) => `
+      <div class="list-item fade-in" data-idx="${idx}">
+        <div class="list-item-icon" style="background: ${t.jenis === 'pemasukan' ? 'var(--color-success-bg)' : 'var(--color-danger-bg)'};">
+          ${t.jenis === 'pemasukan' ? '📈' : '📉'}
+        </div>
+        <div class="list-item-body">
+          <div class="list-item-title">${t.keterangan}</div>
+          <div class="list-item-meta">${formatTanggalPendek(t.tanggal)}</div>
+        </div>
+        <div class="list-item-right">
+          <span class="font-bold ${t.jenis === 'pemasukan' ? 'text-success' : 'text-danger'}">
+            ${t.jenis === 'pemasukan' ? '+' : '-'}${formatRupiah(t.nominal)}
+          </span>
+        </div>
+      </div>
+    `).join('');
+
+    container.querySelectorAll('.list-item').forEach(item => {
+      item.addEventListener('click', async () => {
+        const t = semuaTransaksi[Number(item.dataset.idx)];
+        const ok = await showConfirm({
+          icon: '🗑', title: 'Hapus Transaksi Ini?',
+          message: `${t.keterangan} — ${formatRupiah(t.nominal)} akan dihapus.`,
+          labelOk: 'Ya, Hapus', tipOk: 'danger'
+        });
+        if (ok) {
+          await hapusKeuangan(t.id);
+          showToast('Transaksi dihapus', 'success');
+          await muatData();
+        }
+      });
+    });
+  }
+
+  /* ── MODAL TAMBAH TRANSAKSI ── */
+  const modalTransaksi = document.getElementById('modal-tambah-transaksi');
+  document.getElementById('btn-tambah-transaksi').addEventListener('click', () => {
+    modalTransaksi.classList.add('active');
+  });
+  document.getElementById('btn-batal-transaksi').addEventListener('click', () => {
+    modalTransaksi.classList.remove('active');
+    document.getElementById('form-transaksi').reset();
+    document.getElementById('input-tanggal-transaksi').value = getTanggalHariIni();
+  });
+
+  document.querySelectorAll('.jenis-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.jenis-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('input-jenis').value = btn.dataset.jenis;
+    });
+  });
+
+  document.getElementById('form-transaksi').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const jenis = document.getElementById('input-jenis').value;
+    const tanggal = document.getElementById('input-tanggal-transaksi').value;
+    const keterangan = document.getElementById('input-keterangan').value.trim();
+    const nominal = Number(document.getElementById('input-nominal-transaksi').value);
+
+    if (!tanggal || !keterangan || !nominal) {
+      showToast('Semua field wajib diisi', 'error');
+      return;
+    }
+
+    const btn = document.getElementById('btn-simpan-transaksi');
+    setButtonLoading(btn, true);
+
+    await tambahKeuangan({ jenis, keterangan, nominal, tanggal });
+
+    setButtonLoading(btn, false, 'Simpan Transaksi');
+    showToast('Transaksi berhasil disimpan', 'success');
+    modalTransaksi.classList.remove('active');
+    document.getElementById('form-transaksi').reset();
+    document.getElementById('input-tanggal-transaksi').value = getTanggalHariIni();
+    await muatData();
+  });
+</script>
+</body>
+</html>
