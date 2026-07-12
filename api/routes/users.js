@@ -1,4 +1,4 @@
-/**
+﻿/**
  * routes/users.js
  * CRUD user via Firebase Admin SDK.
  * Semua endpoint: verifyToken + requireOwner.
@@ -26,8 +26,25 @@ router.post('/create', verifyToken, requireOwner, async (req, res) => {
       return res.json({ success: false, message: `Role tidak valid. Pilih: ${validRoles.join(', ')}` });
     }
 
-    if ((role === 'agen_owner' || role === 'agen_staff') && !agent_id) {
-      return res.json({ success: false, message: 'agent_id wajib untuk role agen_owner dan agen_staff' });
+    // Auto-generate agent_id jika role agen_owner dan agent_id tidak dikirim
+    let resolvedAgentId = agent_id || null;
+    let resolvedAgentNama = agent_nama || null;
+
+    if (role === 'agen_owner' && !agent_id) {
+      const agentRef = admin.firestore().collection('agents').doc();
+      resolvedAgentId = agentRef.id;
+      resolvedAgentNama = nama_lengkap.trim();
+      await agentRef.set({
+        nama: nama_lengkap.trim(),
+        nomor_wa: nomor_wa?.trim() || '',
+        aktif: true,
+        created_at: admin.firestore.FieldValue.serverTimestamp(),
+        updated_at: admin.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    if ((role === 'agen_owner' || role === 'agen_staff') && !resolvedAgentId) {
+      return res.json({ success: false, message: 'agent_id wajib untuk role agen_staff' });
     }
 
     const email = usernameToEmail(username);
@@ -47,8 +64,8 @@ router.post('/create', verifyToken, requireOwner, async (req, res) => {
       nama_lengkap: nama_lengkap.trim(),
       nomor_wa: nomor_wa?.trim() || '',
       role,
-      agent_id:   agent_id   || null,
-      agent_nama: agent_nama || null,
+      agent_id:   resolvedAgentId,
+      agent_nama: resolvedAgentNama || null,
       wilayah:    (role === 'kurir' && wilayah) ? wilayah.trim() : null,
       permissions_override: null,
       aktif: true,
@@ -57,9 +74,9 @@ router.post('/create', verifyToken, requireOwner, async (req, res) => {
     });
 
     // Upsert agent_contacts jika agen
-    if (agent_id && (role === 'agen_owner' || role === 'agen_staff')) {
+    if (resolvedAgentId && (role === 'agen_owner' || role === 'agen_staff')) {
       await admin.firestore().collection('agent_contacts').doc(userRecord.uid).set({
-        agent_id,
+        agent_id: resolvedAgentId,
         user_id: userRecord.uid,
         name: nama_lengkap.trim(),
         phone: nomor_wa?.trim() || '',
@@ -167,3 +184,4 @@ router.get('/list', verifyToken, requireOwner, async (req, res) => {
 });
 
 module.exports = router;
+
