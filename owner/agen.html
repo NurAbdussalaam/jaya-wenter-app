@@ -1,17 +1,17 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Kelola Agen — Jaya Wenter App</title>
+<title>Kelola Agen â€” Jaya Wenter App</title>
 <meta name="theme-color" content="#1565C0">
 <link rel="manifest" href="../manifest.json">
 <link rel="stylesheet" href="../assets/css/main.css">
-<!-- ══════════════════════════════════════════════════════════
-     MODE DEBUG (ERUDA) — Console mini untuk HP
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+     MODE DEBUG (ERUDA) â€” Console mini untuk HP
      Aktif HANYA jika URL diakhiri ?debug=1
      Hapus blok ini nanti setelah selesai setup index Firebase.
-     ══════════════════════════════════════════════════════════ -->
+     â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
 <script>
   if (window.location.search.includes('debug=1')) {
     document.write('<script src="https://cdn.jsdelivr.net/npm/eruda"><\/script>');
@@ -23,17 +23,17 @@
 <body>
 
 <div id="page-loading" class="page-loading">
-  <div class="app-name">🧺 Jaya Wenter App</div>
+  <div class="app-name">ðŸ§º Jaya Wenter App</div>
   <div class="spinner"></div>
 </div>
 
 <div class="app-wrapper hidden" id="app-wrapper">
   <header class="app-header">
-    <button class="back-btn" onclick="window.location.href='index.html'">←</button>
+    <button class="back-btn" onclick="window.location.href='index.html'">â†</button>
     <div class="header-title">
       <h1>Kelola Agen</h1>
     </div>
-    <button class="btn-icon" id="btn-tambah-agen" title="Tambah Agen">➕</button>
+    <button class="btn-icon" id="btn-tambah-agen" title="Tambah Agen">âž•</button>
   </header>
 
   <div class="page-content">
@@ -103,8 +103,8 @@
         </select>
       </div>
       <button type="submit" class="btn btn-primary" id="btn-simpan-edit">Simpan Perubahan</button>
-      <button type="button" class="btn btn-outline mt-sm" id="btn-reset-pw">🔑 Reset Password</button>
-      <button type="button" class="btn btn-danger mt-sm" id="btn-hapus-agen">🗑 Hapus Agen</button>
+      <button type="button" class="btn btn-outline mt-sm" id="btn-reset-pw">ðŸ”‘ Reset Password</button>
+      <button type="button" class="btn btn-danger mt-sm" id="btn-hapus-agen">ðŸ—‘ Hapus Agen</button>
       <button type="button" class="btn btn-ghost mt-sm" id="btn-batal-edit">Batal</button>
     </form>
   </div>
@@ -122,8 +122,11 @@
   let agenDipilih = null;
 
   (async () => {
+    console.log('[agen.html] mulai requireAuth');
     await requireAuth('owner');
+    console.log('[agen.html] requireAuth selesai, mulai listenDaftarAgen');
     listenDaftarAgen((data) => {
+      console.log('[agen.html] data diterima:', data.length);
       daftarAgen = data;
       render();
     });
@@ -135,13 +138,13 @@
     const container = document.getElementById('list-agen');
 
     if (daftarAgen.length === 0) {
-      container.innerHTML = `<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-title">Belum ada agen</div><div class="empty-sub">Tap tombol ➕ untuk menambah agen</div></div>`;
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">ðŸ‘¥</div><div class="empty-title">Belum ada agen</div><div class="empty-sub">Tap tombol âž• untuk menambah agen</div></div>`;
       return;
     }
 
     container.innerHTML = daftarAgen.map((a, idx) => `
       <div class="list-item fade-in" data-idx="${idx}">
-        <div class="list-item-icon">${a.aktif ? '👤' : '🚫'}</div>
+        <div class="list-item-icon">${a.aktif ? 'ðŸ‘¤' : 'ðŸš«'}</div>
         <div class="list-item-body">
           <div class="list-item-title">${a.nama_lengkap}</div>
           <div class="list-item-sub">@${a.username}</div>
@@ -211,7 +214,7 @@
 
   document.getElementById('btn-hapus-agen').addEventListener('click', async () => {
     const ok = await showConfirm({
-      icon: '🗑', title: 'Hapus Agen Ini?',
+      icon: 'ðŸ—‘', title: 'Hapus Agen Ini?',
       message: `${agenDipilih.nama_lengkap} akan dihapus permanen beserta akses loginnya.`,
       labelOk: 'Ya, Hapus', tipOk: 'danger'
     });
@@ -226,7 +229,7 @@
     }
   });
 
-  /* ── MODAL TAMBAH AGEN ── */
+  /* â”€â”€ MODAL TAMBAH AGEN â”€â”€ */
   const modalTambah = document.getElementById('modal-tambah-agen');
   document.getElementById('btn-tambah-agen').addEventListener('click', () => {
     modalTambah.classList.add('active');
@@ -278,3 +281,4 @@
 </script>
 </body>
 </html>
+
