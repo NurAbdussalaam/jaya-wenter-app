@@ -102,7 +102,7 @@ export async function getDaftarAgen() {
 }
 
 export function listenDaftarAgen(callback) {
-  const q = query(collection(db, 'users'), where('role', '==', 'agen'), orderBy('nama_lengkap'));
+  const q = query(collection(db, 'users'), where('role', 'in', ['agen_owner', 'agen_staff']));
   return onSnapshot(q, (snapshot) => {
     callback(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
   });
