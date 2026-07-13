@@ -274,24 +274,14 @@
   });
 
   function updateJenisBtn(jenis) {
-    document.querySelectorAll('.jenis-btn').forEach(b => {
-      b.classList.remove('active');
-      b.style.background = '';
-      b.style.color = '';
-      b.style.borderColor = '';
-    });
-    const aktif = document.querySelector(`.jenis-btn[data-jenis="${jenis}"]`);
-    if (aktif) {
-      aktif.classList.add('active');
-      if (jenis === 'pemasukan') {
-        aktif.style.background = '#1b5e20';
-        aktif.style.color = '#fff';
-        aktif.style.borderColor = '#1b5e20';
-      } else {
-        aktif.style.background = '#b71c1c';
-        aktif.style.color = '#fff';
-        aktif.style.borderColor = '#b71c1c';
-      }
+    const btnPemasukan = document.getElementById('btn-pemasukan');
+    const btnPengeluaran = document.getElementById('btn-pengeluaran');
+    if (jenis === 'pemasukan') {
+      btnPemasukan.style.cssText = 'flex:1; background:#1b5e20; color:#fff; border:2px solid #1b5e20;';
+      btnPengeluaran.style.cssText = 'flex:1; background:transparent; color:var(--brand-primary); border:2px solid var(--brand-primary);';
+    } else {
+      btnPengeluaran.style.cssText = 'flex:1; background:#b71c1c; color:#fff; border:2px solid #b71c1c;';
+      btnPemasukan.style.cssText = 'flex:1; background:transparent; color:var(--brand-primary); border:2px solid var(--brand-primary);';
     }
     document.getElementById('input-jenis').value = jenis;
   }
@@ -335,6 +325,8 @@
 </script>
 </body>
 </html>
+
+
 
 
 
