@@ -1,5 +1,5 @@
-﻿/* ============================================================
-   JAYA WENTER APP â€” db.js
+/* ============================================================
+   JAYA WENTER APP — db.js
    Fungsi CRUD Firestore untuk semua entitas
    ============================================================ */
 
@@ -12,9 +12,9 @@ import {
 import { totalWarna, getTanggalHariIni, getJamSekarang } from './utils.js';
 import { tentukanJadwalTerdekat } from './jadwal.js';
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ════════════════════════════════════════
    ORDER
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+   ════════════════════════════════════════ */
 
 export async function buatOrder({ agen_uid, agen_nama, jumlah_pengguna, warna, catatan }) {
   const total_pieces = totalWarna(warna);
@@ -91,12 +91,12 @@ export async function getOrdersByPeriode(tanggalMulai, tanggalAkhir) {
   return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ════════════════════════════════════════
    AGEN (USERS dengan role agen)
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+   ════════════════════════════════════════ */
 
 export async function getDaftarAgen() {
-  const q = query(collection(db, 'users'), where('role', '==', 'agen'), orderBy('nama_lengkap'));
+  const q = query(collection(db, 'users'), where('role', 'in', ['agen_owner', 'agen_staff']));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 }
@@ -108,9 +108,9 @@ export function listenDaftarAgen(callback) {
   });
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ════════════════════════════════════════
    HUTANG
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+   ════════════════════════════════════════ */
 
 export async function tambahHutang({ agen_uid, agen_nama, nama_pelanggan, jumlah_pieces, nilai_hutang, catatan }) {
   const data = {
@@ -149,16 +149,16 @@ export async function hapusHutang(hutangId) {
   return { success: true };
 }
 
-/* â”€â”€ HITUNG STATUS BERDASARKAN PEMBAYARAN â”€â”€ */
+/* ── HITUNG STATUS BERDASARKAN PEMBAYARAN ── */
 function hitungStatus(nilai_hutang, nilai_terbayar) {
   if (nilai_terbayar >= nilai_hutang) return 'lunas';
   if (nilai_terbayar > 0) return 'sebagian';
   return 'belum_lunas';
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ════════════════════════════════════════
    PEMBAYARAN
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+   ════════════════════════════════════════ */
 
 export async function tambahPembayaran({ hutang_id, agen_uid, agen_nama, nama_pelanggan, nominal, tanggal_bayar, catatan }) {
   const hutangRef = doc(db, 'hutang', hutang_id);
@@ -244,9 +244,9 @@ export async function hapusPembayaran(bayarId) {
   return { success: true };
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ════════════════════════════════════════
    KEUANGAN
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+   ════════════════════════════════════════ */
 
 export async function tambahKeuangan({ jenis, keterangan, nominal, tanggal }) {
   const data = {
@@ -280,9 +280,9 @@ export async function hapusKeuangan(transId) {
   return { success: true };
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ════════════════════════════════════════
    SETTINGS
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+   ════════════════════════════════════════ */
 
 export async function getSettings() {
   const docRef = doc(db, 'settings', 'app');
@@ -304,9 +304,9 @@ export async function updateSettings(data) {
   return { success: true };
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* ════════════════════════════════════════
    REKAP & STATISTIK
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+   ════════════════════════════════════════ */
 
 export async function getRekapPerAgen(tanggalMulai, tanggalAkhir) {
   const orders = await getOrdersByPeriode(tanggalMulai, tanggalAkhir);
