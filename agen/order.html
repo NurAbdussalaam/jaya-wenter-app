@@ -108,7 +108,7 @@
   DAFTAR_WARNA.forEach(w => warnaJumlah[w.key] = 0);
 
   (async () => {
-    currentUser = await requireAuth('agen');
+    currentUser = await requireAuth(['agen_owner', 'agen_staff']);
     settings = await getSettings();
 
     renderWarnaList();

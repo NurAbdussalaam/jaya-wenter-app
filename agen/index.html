@@ -115,7 +115,7 @@
   let currentUser = null;
 
   (async () => {
-    currentUser = await requireAuth('agen');
+    currentUser = await requireAuth(['agen_owner', 'agen_staff']);
 
     document.getElementById('header-greeting').textContent = `Halo, ${currentUser.nama_lengkap} 👋`;
     document.getElementById('header-date').textContent = new Date().toLocaleDateString('id-ID', {
