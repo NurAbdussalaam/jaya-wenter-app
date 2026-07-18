@@ -1,5 +1,5 @@
 /* ============================================================
-   JAYA WENTER APP — jadwal.js
+   JAYA WENTER APP ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â jadwal.js
    Logika penentuan jadwal kunjungan terdekat secara otomatis
    ============================================================ */
 
@@ -9,7 +9,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getHariIndex, getNamaHari } from './utils.js';
 
-/* ── AMBIL SEMUA JADWAL AKTIF ── */
+/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ AMBIL SEMUA JADWAL AKTIF ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
 export async function getJadwalAktif() {
   const q = query(
     collection(db, 'jadwal'),
@@ -21,7 +21,7 @@ export async function getJadwalAktif() {
   return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-/* ── TENTUKAN JADWAL TERDEKAT BERDASARKAN WAKTU ORDER ──
+/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ TENTUKAN JADWAL TERDEKAT BERDASARKAN WAKTU ORDER ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
    Logika:
    1. Ambil semua jadwal aktif, urutkan berdasarkan hari & jam
    2. Cari jadwal pertama yang >= waktu order saat ini
@@ -42,7 +42,7 @@ export async function tentukanJadwalTerdekat(tanggalOrder, jamOrder) {
     let jarakHari = (j.hari_index - hariOrderIndex + 7) % 7;
     const menitJadwal = jamKeMenit(j.jam);
 
-    // Jika hari sama tapi jam jadwal sudah lewat → dorong ke minggu depan
+    // Jika hari sama tapi jam jadwal sudah lewat ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ dorong ke minggu depan
     if (jarakHari === 0 && menitJadwal <= menitOrder) {
       jarakHari = 7;
     }
@@ -70,7 +70,7 @@ export async function tentukanJadwalTerdekat(tanggalOrder, jamOrder) {
   };
 }
 
-/* ── HELPER: jam "HH:MM" → menit dari 00:00 ── */
+/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ HELPER: jam "HH:MM" ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ menit dari 00:00 ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
 function jamKeMenit(jam) {
   const [h, m] = jam.split(':').map(Number);
   return h * 60 + m;
@@ -80,14 +80,17 @@ function formatJamLabel(jam) {
   return jam.replace(':', '.') + ' WIB';
 }
 
-/* ── HELPER: tambah N hari ke tanggal "YYYY-MM-DD" ── */
+/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ HELPER: tambah N hari ke tanggal "YYYY-MM-DD" ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
 function tambahHari(tanggalStr, n) {
   const date = new Date(tanggalStr + 'T00:00:00');
   date.setDate(date.getDate() + n);
-  return date.toISOString().split('T')[0];
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 }
 
-/* ── OWNER: TAMBAH JADWAL BARU ── */
+/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ OWNER: TAMBAH JADWAL BARU ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
 export async function tambahJadwal(hari, jam) {
   const hariList = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
   const hari_index = hariList.indexOf(hari);
@@ -108,7 +111,7 @@ export async function tambahJadwal(hari, jam) {
   }
 }
 
-/* ── OWNER: HAPUS JADWAL ── */
+/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ OWNER: HAPUS JADWAL ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
 export async function hapusJadwal(jadwalId) {
   try {
     await deleteDoc(doc(db, 'jadwal', jadwalId));
@@ -118,7 +121,7 @@ export async function hapusJadwal(jadwalId) {
   }
 }
 
-/* ── OWNER: AKTIF/NONAKTIFKAN JADWAL ── */
+/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ OWNER: AKTIF/NONAKTIFKAN JADWAL ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
 export async function toggleJadwal(jadwalId, aktif) {
   try {
     await updateDoc(doc(db, 'jadwal', jadwalId), { aktif });
@@ -128,7 +131,7 @@ export async function toggleJadwal(jadwalId, aktif) {
   }
 }
 
-/* ── OWNER: REKAP KUNJUNGAN PER JADWAL ──
+/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ OWNER: REKAP KUNJUNGAN PER JADWAL ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
    Mengembalikan daftar agen yang harus dikunjungi pada jadwal tertentu,
    untuk tanggal kunjungan tertentu.
 */
@@ -142,7 +145,7 @@ export async function getRekapKunjungan(jadwalId, tanggalKunjungan) {
   return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-/* ── OWNER: REKAP SEMUA KUNJUNGAN MENDATANG, DIKELOMPOKKAN PER JADWAL ── */
+/* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ OWNER: REKAP SEMUA KUNJUNGAN MENDATANG, DIKELOMPOKKAN PER JADWAL ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
 export async function getRekapKunjunganMendatang() {
   const jadwalList = await getJadwalAktif();
   const hasil = [];
@@ -150,7 +153,10 @@ export async function getRekapKunjunganMendatang() {
   for (const j of jadwalList) {
     // Cari tanggal kunjungan terdekat untuk jadwal ini
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    const tyyyy = today.getFullYear();
+    const tmm = String(today.getMonth() + 1).padStart(2, '0');
+    const tdd = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${tyyyy}-${tmm}-${tdd}`;
     const jarakHari = (j.hari_index - getHariIndex(todayStr) + 7) % 7;
     const tanggalKunjungan = tambahHari(todayStr, jarakHari === 0 ? 0 : jarakHari);
 
