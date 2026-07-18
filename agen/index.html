@@ -7,11 +7,11 @@
 <meta name="theme-color" content="#1565C0">
 <link rel="manifest" href="../manifest.json">
 <link rel="stylesheet" href="../assets/css/main.css">
-<!-- ══════════════════════════════════════════════════════════
+<!-- ═══════════════════════════════════════════════════════════════
      MODE DEBUG (ERUDA) — Console mini untuk HP
      Aktif HANYA jika URL diakhiri ?debug=1
      Hapus blok ini nanti setelah selesai setup index Firebase.
-     ══════════════════════════════════════════════════════════ -->
+     ═══════════════════════════════════════════════════════════════ -->
 <script>
   if (window.location.search.includes('debug=1')) {
     document.write('<script src="https://cdn.jsdelivr.net/npm/eruda"><\/script>');
@@ -40,7 +40,7 @@
 
     <!-- Info Jadwal Berikutnya -->
     <div class="jadwal-box" id="jadwal-info">
-      <div class="jadwal-label">📅 JADWAL KUNJUNGAN BERIKUTNYA</div>
+      <div class="jadwal-label">Jadwal Penjemputan</div>
       <div class="jadwal-value" id="jadwal-value">Memuat...</div>
     </div>
 
@@ -132,9 +132,20 @@
   async function muatJadwalBerikutnya() {
     try {
       const info = await tentukanJadwalTerdekat(getTanggalHariIni(), getJamSekarang());
-      document.getElementById('jadwal-value').textContent = info
-        ? `${info.jadwal_label}`
-        : 'Belum ada jadwal disetting owner';
+      const el = document.getElementById('jadwal-value');
+      if (info) {
+        const tgl = new Date(info.tanggal_kunjungan + 'T00:00:00');
+        const tglLengkap = tgl.toLocaleDateString('id-ID', {
+          weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+        });
+        const jamLabel = info.jam.replace(':', '.') + ' WIB';
+        el.innerHTML = `
+          <div class="jadwal-tanggal">${tglLengkap}</div>
+          <div class="jadwal-jam">Pukul ${jamLabel}</div>
+        `;
+      } else {
+        el.textContent = 'Belum ada jadwal disetting owner';
+      }
     } catch (e) {
       document.getElementById('jadwal-value').textContent = 'Gagal memuat jadwal';
     }
