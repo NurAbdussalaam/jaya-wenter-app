@@ -216,14 +216,33 @@ async function apiFetch(url, options = {}, timeoutMs = 10000) {
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(url, { ...options, signal: controller.signal });
-    clearTimeout(timer);
-    return await response.json();
+    const responseText = await response.text();
+    let result;
+    try {
+      result = responseText ? JSON.parse(responseText) : {};
+    } catch (parseError) {
+      console.error('[apiFetch] Backend mengembalikan respons bukan JSON:', responseText);
+      result = {
+        success: false,
+        message: responseText || `Server mengembalikan HTTP ${response.status}`
+      };
+    }
+
+    if (!response.ok) {
+      return {
+        success: false,
+        message: result.message || `Server mengembalikan HTTP ${response.status}`
+      };
+    }
+    return result;
   } catch (err) {
-    clearTimeout(timer);
     if (err.name === 'AbortError') {
       return { success: false, message: 'Koneksi lambat atau terputus. Periksa jaringan dan coba lagi.' };
     }
+    console.error('[apiFetch] Request gagal:', err);
     return { success: false, message: err.message };
+  } finally {
+    clearTimeout(timer);
   }
 }
 

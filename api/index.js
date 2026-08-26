@@ -15,19 +15,29 @@ const admin   = require('firebase-admin');
 // Service Account diambil dari environment variable FIREBASE_SERVICE_ACCOUNT
 // JANGAN hardcode credential di sini.
 let serviceAccount;
+let initializationError = null;
 try {
+  if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
+    throw new Error('Environment variable FIREBASE_SERVICE_ACCOUNT belum dikonfigurasi');
+  }
   serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 } catch (err) {
   console.error('[FATAL] FIREBASE_SERVICE_ACCOUNT tidak valid atau tidak diset.');
-  console.error('Pastikan env var sudah diset di Render Dashboard.');
-  process.exit(1);
+  console.error('Pastikan env var sudah diset di Vercel Project Settings.');
+  initializationError = err;
 }
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
-
-console.log('[Firebase Admin] Initialized — project:', serviceAccount.project_id);
+if (!initializationError) {
+  try {
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    console.log('[Firebase Admin] Initialized — project:', serviceAccount.project_id);
+  } catch (err) {
+    console.error('[FATAL] Firebase Admin gagal diinisialisasi:', err);
+    initializationError = err;
+  }
+}
 
 // ── Express Setup ─────────────────────────────────────────────
 const app = express();
@@ -41,6 +51,17 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+// Kembalikan error konfigurasi sebagai JSON agar client tidak menerima HTML.
+app.use((req, res, next) => {
+  if (initializationError) {
+    return res.status(500).json({
+      success: false,
+      message: initializationError.message
+    });
+  }
+  next();
+});
 
 // Log setiap request (sederhana, tidak butuh library berat)
 app.use((req, res, next) => {
@@ -61,8 +82,11 @@ app.use((req, res) => {
 
 // ── Global Error Handler ──────────────────────────────────────
 app.use((err, req, res, next) => {
-  console.error('[Unhandled Error]', err);
-  res.status(500).json({ success: false, message: 'Internal server error' });
+  console.error(err);
+  res.status(500).json({
+    success: false,
+    message: err.message || 'Internal Server Error'
+  });
 });
 
 // ── Local server / Vercel handler ─────────────────────────────
