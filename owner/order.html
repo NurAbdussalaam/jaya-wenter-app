@@ -39,9 +39,10 @@
 
     <div class="filter-tabs">
       <button class="filter-tab active" data-filter="semua">Semua</button>
-      <button class="filter-tab" data-filter="pending">Pending</button>
-      <button class="filter-tab" data-filter="dijemput">Dijemput</button>
-      <button class="filter-tab" data-filter="selesai">Selesai</button>
+      <button class="filter-tab" data-filter="MENUNGGU_PENJEMPUTAN">Menunggu Penjemputan</button>
+      <button class="filter-tab" data-filter="DIPROSES">Diproses</button>
+      <button class="filter-tab" data-filter="DIJEMPUT">Dijemput</button>
+      <button class="filter-tab" data-filter="SELESAI">Selesai</button>
     </div>
 
     <div id="list-order">
@@ -69,7 +70,7 @@
 
 <script type="module">
   import { requireAuth } from '../assets/js/auth.js';
-  import { listenSemuaOrders, updateStatusOrder } from '../assets/js/db.js';
+  import { listenSemuaOrders, updateStatusOrderWithLog } from '../assets/js/db.js';
   import { formatTimestamp, formatWarna, showToast, DAFTAR_WARNA } from '../assets/js/utils.js';
 
   const pageLoading = document.getElementById('page-loading');
@@ -102,9 +103,15 @@
 
   function render() {
     const container = document.getElementById('list-order');
-    const data = filterAktif === 'semua' ? semuaOrder : semuaOrder.filter(o => o.status === filterAktif);
+    let filteredData;
+    
+    if (filterAktif === 'semua') {
+      filteredData = semuaOrder;
+    } else {
+      filteredData = semuaOrder.filter(o => o.status === filterAktif);
+    }
 
-    if (data.length === 0) {
+    if (filteredData.length === 0) {
       container.innerHTML = `
         <div class="empty-state">
           <div class="empty-icon">📭</div>
@@ -114,12 +121,17 @@
     }
 
     const statusBadge = {
-      pending: '<span class="badge badge-pending">Pending</span>',
-      dijemput: '<span class="badge badge-process">Dijemput</span>',
-      selesai: '<span class="badge badge-done">Selesai</span>'
+      'MENUNGGU_PENJEMPUTAN': '<span class="badge badge-pending">Menunggu Penjemputan</span>',
+      'DIPROSES': '<span class="badge badge-process">Diproses</span>',
+      'DIJEMPUT': '<span class="badge badge-process">Dijemput</span>',
+      'SELESAI': '<span class="badge badge-done">Selesai</span>',
+      'PENDING': '<span class="badge badge-pending">Pending</span>',
+      'dijemput': '<span class="badge badge-process">Dijemput</span>',
+      'selesai': '<span class="badge badge-done">Selesai</span>',
+      'pending': '<span class="badge badge-pending">Pending</span>'
     };
 
-    container.innerHTML = data.map((o, idx) => `
+    container.innerHTML = filteredData.map((o, idx) => `
       <div class="list-item fade-in" data-idx="${idx}" data-filter-source="${filterAktif}">
         <div class="list-item-icon">🧺</div>
         <div class="list-item-body">
@@ -127,14 +139,14 @@
           <div class="list-item-sub">${o.total_pieces} pcs — ${o.jumlah_pengguna} pelanggan</div>
           <div class="list-item-meta">${formatTimestamp(o.created_at)} • ${o.jadwal_label || '-'}</div>
         </div>
-        <div class="list-item-right">${statusBadge[o.status] || statusBadge.pending}</div>
+        <div class="list-item-right">${statusBadge[o.status] || statusBadge.PENDING}</div>
       </div>
     `).join('');
 
     container.querySelectorAll('.list-item').forEach(item => {
       item.addEventListener('click', () => {
         const idx = Number(item.dataset.idx);
-        orderDipilih = data[idx];
+        orderDipilih = filteredData[idx];
         tampilkanDetail(orderDipilih);
       });
     });
@@ -182,8 +194,17 @@
 
     const btnDijemput = document.getElementById('btn-set-dijemput');
     const btnSelesai  = document.getElementById('btn-set-selesai');
-    btnDijemput.classList.toggle('hidden', order.status !== 'pending');
-    btnSelesai.classList.toggle('hidden', order.status === 'selesai');
+    
+    // Logika transisi status berdasarkan status V2
+    // MENUNGGU_PENJEMPUTAN -> bisa Ditandai Dijemput/Diproses
+    // DIPROSES -> bisa Ditandai Selesai  
+    // DIJEMPUT -> bisa Ditandai Selesai
+    // SELESAI -> tidak ada aksi
+    const canMarkDijemput = ['MENUNGGU_PENJEMPUTAN', 'DIPROSES'].includes(order.status);
+    const canMarkSelesai = ['DIPROSES', 'DIJEMPUT'].includes(order.status);
+    
+    btnDijemput.classList.toggle('hidden', !canMarkDijemput);
+    btnSelesai.classList.toggle('hidden', !canMarkSelesai);
 
     document.getElementById('modal-detail').classList.add('active');
   }
@@ -193,13 +214,31 @@
   });
 
   document.getElementById('btn-set-dijemput').addEventListener('click', async () => {
-    await updateStatusOrder(orderDipilih.id, 'dijemput');
-    showToast('Status diubah menjadi Dijemput', 'success');
+    const userContext = {
+      uid: 'owner',
+      nama: 'Owner',
+      role: 'owner'
+    };
+    
+    // Tentukan status tujuan berdasarkan status saat ini
+    let targetStatus = 'DIJEMPUT';
+    if (orderDipilih.status === 'MENUNGGU_PENJEMPUTAN') {
+      targetStatus = 'DIPROSES'; // Contoh: Owner menandai order langsung sebagai Diproses
+    }
+    
+    await updateStatusOrderWithLog(orderDipilih.id, targetStatus, userContext);
+    showToast(`Status diubah menjadi ${targetStatus}`, 'success');
     document.getElementById('modal-detail').classList.remove('active');
   });
 
   document.getElementById('btn-set-selesai').addEventListener('click', async () => {
-    await updateStatusOrder(orderDipilih.id, 'selesai');
+    const userContext = {
+      uid: 'owner',
+      nama: 'Owner', 
+      role: 'owner'
+    };
+    
+    await updateStatusOrderWithLog(orderDipilih.id, 'SELESAI', userContext);
     showToast('Status diubah menjadi Selesai', 'success');
     document.getElementById('modal-detail').classList.remove('active');
   });

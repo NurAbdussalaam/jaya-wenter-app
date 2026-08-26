@@ -91,7 +91,8 @@
 
 <script type="module">
   import { requireAuth } from '../assets/js/auth.js';
-  import { buatOrder, getSettings } from '../assets/js/db.js';
+  import { getSettings } from '../assets/js/db.js';
+  import { buatOrderV2 } from '../assets/js/db.js';
   import { bukaWhatsAppOrder } from '../assets/js/whatsapp.js';
   import { tentukanJadwalTerdekat } from '../assets/js/jadwal.js';
   import {
@@ -137,11 +138,23 @@
       btn.addEventListener('click', () => {
         const key = btn.dataset.key;
         const action = btn.dataset.action;
-        if (action === 'tambah') warnaJumlah[key]++;
-        else if (warnaJumlah[key] > 0) warnaJumlah[key]--;
+        const totalPieces = Number(document.getElementById('input-total-pieces').value) || 0;
+        const totalWarnaInput = Object.values(warnaJumlah).reduce((a, b) => a + b, 0);
+
+        if (action === 'tambah') {
+          // Cegah penambahan jika total warna sudah >= total pieces
+          if (totalWarnaInput >= totalPieces) {
+            showToast(`Total warna sudah mencapai batas (${totalPieces} pieces)`, 'error');
+            return;
+          }
+          warnaJumlah[key]++;
+        } else if (warnaJumlah[key] > 0) {
+          warnaJumlah[key]--;
+        }
 
         document.getElementById(`val-${key}`).textContent = warnaJumlah[key];
         updateRunningTotal();
+        updateStepperButtons();
       });
     });
   }
@@ -166,7 +179,42 @@
     }
   }
 
-  document.getElementById('input-total-pieces').addEventListener('input', updateRunningTotal);
+  /* ── UPDATE STEPPER BUTTONS STATE (enable/disable) ── */
+  function updateStepperButtons() {
+    const totalPieces = Number(document.getElementById('input-total-pieces').value) || 0;
+    const totalWarnaInput = Object.values(warnaJumlah).reduce((a, b) => a + b, 0);
+    const reachedLimit = totalWarnaInput >= totalPieces;
+
+    document.querySelectorAll('.stepper-btn[data-action="tambah"]').forEach(btn => {
+      btn.disabled = reachedLimit;
+    });
+  }
+
+  function sesuaikanWarnaDenganTotalPieces() {
+    const totalPieces = Number(document.getElementById('input-total-pieces').value) || 0;
+    const totalWarnaInput = Object.values(warnaJumlah).reduce((a, b) => a + b, 0);
+
+    if (totalWarnaInput > totalPieces) {
+      DAFTAR_WARNA.forEach(w => {
+        warnaJumlah[w.key] = 0;
+        document.getElementById(`val-${w.key}`).textContent = 0;
+      });
+      showToast('Total pieces dikurangi, warna direset.', 'info');
+    }
+  }
+
+  /* ── HANDLE TOTAL PIECES CHANGES ── */
+  document.getElementById('input-total-pieces').addEventListener('input', () => {
+    sesuaikanWarnaDenganTotalPieces();
+    updateRunningTotal();
+    updateStepperButtons();
+  });
+
+  document.getElementById('input-total-pieces').addEventListener('change', () => {
+    sesuaikanWarnaDenganTotalPieces();
+    updateRunningTotal();
+    updateStepperButtons();
+  });
 
   /* ── PREVIEW JADWAL ── */
   async function tampilkanPreviewJadwal() {
@@ -220,13 +268,32 @@
     setButtonLoading(btn, true);
 
     try {
-      const result = await buatOrder({
-        agen_uid: currentUser.uid,
-        agen_nama: currentUser.nama_lengkap,
+      const agen_uid = currentUser?.uid || '';
+      const agen_nama = currentUser?.nama_lengkap || currentUser?.nama || '';
+
+      if (!agen_uid) {
+        showToast('Data profil agen belum selesai dimuat. Silakan coba lagi.', 'error');
+        setButtonLoading(btn, false, '📱 ORDER WENTER');
+        return;
+      }
+
+      const orderData = {
+        agen_uid: agen_uid,
+        agen_nama: agen_nama,
+        status: 'MENUNGGU_PENJEMPUTAN',
         jumlah_pengguna: jumlahPengguna,
         warna: { ...warnaJumlah },
-        catatan
-      });
+        catatan: catatan,
+      };
+
+      const userContextForOrder = {
+        uid: agen_uid,
+        nama: agen_nama,
+        role: currentUser?.role || 'agen',
+      };
+
+      const newOrder = await buatOrderV2(orderData, userContextForOrder);
+      const result = { success: true, data: { tanggal_order: getTanggalHariIni(), jam_order: getJamSekarang() } }; // Mock result for compatibility
 
       if (result.success) {
         showToast('Order berhasil disimpan!', 'success', 2000);

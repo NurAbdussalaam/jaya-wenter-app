@@ -330,6 +330,7 @@ h4 { font-size: .9rem; font-weight: 600; }
   background: var(--input-bg);
   border: 1.5px solid var(--input-border);
   border-radius: var(--radius-sm);
+  font-family: inherit;
   font-size: 1rem;
   color: var(--text-primary);
   transition: var(--transition);
@@ -442,6 +443,7 @@ select.form-control {
   padding: 16px var(--space-lg);
   border-radius: var(--radius-md);
   border: none;
+  font-family: inherit;
   font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
@@ -702,6 +704,7 @@ select.form-control {
   margin: 0 auto;
   padding: var(--space-lg) var(--space-md);
   padding-bottom: calc(var(--safe-bottom) + var(--space-md));
+  font-family: inherit;
   transform: translateY(100%);
   transition: transform .3s cubic-bezier(.32,.72,0,1);
   max-height: 92dvh;
@@ -840,24 +843,28 @@ select.form-control {
 /* ── 25. FILTER TABS ── */
 .filter-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-xs);
   background: var(--bg-tertiary);
   border-radius: var(--radius-sm);
-  padding: 3px;
+  padding: 4px;
   margin-bottom: var(--space-md);
 }
 
 .filter-tab {
-  flex: 1;
-  padding: 8px 4px;
+  flex: 1 1 auto;
+  min-width: calc(33% - var(--space-xs));
+  padding: 8px 6px;
   border: none;
   border-radius: 6px;
   background: transparent;
   color: var(--text-secondary);
-  font-size: .8rem;
+  font-size: .75rem;
   font-weight: 500;
   cursor: pointer;
   transition: var(--transition);
+  text-align: center;
+  white-space: nowrap;
 }
 
 .filter-tab.active {
@@ -865,6 +872,14 @@ select.form-control {
   color: var(--brand-primary);
   font-weight: 700;
   box-shadow: var(--shadow-sm);
+}
+
+/* Badge compact untuk teks panjang */
+.badge {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
 }
 
 /* ── 26. KEUANGAN CARD ── */

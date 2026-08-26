@@ -259,23 +259,33 @@
     const btn = document.getElementById('btn-simpan-agen');
     setButtonLoading(btn, true);
 
-    const tersedia = await cekUsernameTersedia(username);
-    if (!tersedia) {
-      setButtonLoading(btn, false, 'Simpan Agen');
-      showToast('Username sudah digunakan, pilih username lain', 'error');
-      return;
-    }
+    try {
+      const tersedia = await cekUsernameTersedia(username);
+      if (!tersedia) {
+        showToast('Username sudah digunakan, pilih username lain', 'error');
+        return;
+      }
 
-    const result = await buatAgenBaru({ username, password, nama_lengkap, nomor_wa });
+      const result = await buatAgenBaru({ username, password, nama_lengkap, nomor_wa });
 
-    setButtonLoading(btn, false, 'Simpan Agen');
+      if (!result.success) {
+        throw new Error(result.message || 'Gagal menambahkan agen');
+      }
 
-    if (result.success) {
       showToast('Agen baru berhasil ditambahkan', 'success');
       modalTambah.classList.remove('active');
       document.getElementById('form-tambah-agen').reset();
-    } else {
-      showToast(result.message || 'Gagal menambahkan agen', 'error');
+    } catch (err) {
+      console.error('[agen.html] Gagal menambahkan agen:', err);
+      const isNetworkError = /failed to fetch|network|koneksi|terputus/i.test(err.message || '');
+      showToast(
+        isNetworkError
+          ? 'Gagal membuat akun agen. Periksa koneksi internet atau konfigurasi Firebase.'
+          : (err.message || 'Gagal menambahkan agen'),
+        'error'
+      );
+    } finally {
+      setButtonLoading(btn, false, 'Simpan Agen');
     }
   });
 </script>

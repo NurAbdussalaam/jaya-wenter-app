@@ -242,3 +242,31 @@ export function formatWarna(warna) {
 export function totalWarna(warna) {
   return DAFTAR_WARNA.reduce((sum, w) => sum + (Number(warna[w.key]) || 0), 0);
 }
+
+/* ════════════════════════════════════════
+   STATUS ORDER COMPATIBILITY LAYER
+   ════════════════════════════════════════ */
+
+export function formatOrderStatusLabel(status) {
+  const s = status ? status.toString().trim().toUpperCase() : '';
+
+  if (s === 'PENDING' || s === 'MENUNGGU_PENJEMPUTAN') return 'Menunggu Penjemputan';
+  if (s === 'DIJEMPUT' || s === 'SUDAH_DIJEMPUT') return 'Sudah Dijemput';
+  if (s === 'SEDANG_DIPROSES') return 'Sedang Diproses';
+  if (s === 'SUDAH_DIANTAR') return 'Sudah Diantar';
+  if (s === 'SELESAI' || s === 'COMPLETED') return 'Selesai';
+
+  return status || 'Status Tidak Diketahui';
+}
+
+export function getOrderStatusBadgeClass(status) {
+  const s = status ? status.toString().trim().toUpperCase() : '';
+
+  if (s === 'PENDING' || s === 'MENUNGGU_PENJEMPUTAN') return 'badge bg-warning text-dark';
+  if (s === 'DIJEMPUT' || s === 'SUDAH_DIJEMPUT') return 'badge bg-primary';
+  if (s === 'SEDANG_DIPROSES') return 'badge bg-purple text-white';
+  if (s === 'SUDAH_DIANTAR') return 'badge bg-info text-dark';
+  if (s === 'SELESAI' || s === 'COMPLETED') return 'badge bg-success';
+
+  return 'badge bg-secondary';
+}

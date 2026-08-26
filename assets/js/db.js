@@ -49,7 +49,27 @@ export async function getOrdersByAgen(agenUid, batasJumlah = 50) {
     limit(batasJumlah)
   );
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  return snapshot.docs.map(normalizeOrderSnapshot);
+}
+
+function normalizeOrderSnapshot(snapshotDoc) {
+  const data = snapshotDoc.data();
+  return {
+    id: snapshotDoc.id,
+    ...data,
+    status: normalizeOrderStatus(data.status),
+    created_by_uid: data.created_by_uid || data.agen_uid || ''
+  };
+}
+
+function normalizeOrderStatus(status) {
+  const normalizedStatus = String(status || 'PENDING').toUpperCase();
+  const legacyStatusMap = {
+    SUDAH_DIJEMPUT: 'DIJEMPUT',
+    SEDANG_DIPROSES: 'DIPROSES',
+    SUDAH_DIANTAR: 'SELESAI'
+  };
+  return legacyStatusMap[normalizedStatus] || normalizedStatus;
 }
 
 export function listenOrdersHariIni(callback) {
@@ -60,7 +80,7 @@ export function listenOrdersHariIni(callback) {
     orderBy('created_at', 'desc')
   );
   return onSnapshot(q, (snapshot) => {
-    callback(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    callback(snapshot.docs.map(normalizeOrderSnapshot));
   });
 }
 
@@ -71,13 +91,123 @@ export function listenSemuaOrders(callback, batasJumlah = 100) {
     limit(batasJumlah)
   );
   return onSnapshot(q, (snapshot) => {
-    callback(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+    callback(snapshot.docs.map(normalizeOrderSnapshot));
   });
 }
 
 export async function updateStatusOrder(orderId, status) {
-  await updateDoc(doc(db, 'orders', orderId), { status });
+  await updateDoc(doc(db, 'orders', orderId), { status: normalizeOrderStatus(status) });
   return { success: true };
+}
+
+/* ── FUNGSI BUAT ORDER V2 (ADDITIVE FIELDS DITAMBAHKAN) ── */
+export async function buatOrderV2(orderData, userContext) {
+  // Gunakan nilai default agar tidak ada field yang undefined
+  const agen_uid = orderData?.agen_uid || userContext?.uid || '';
+  const agen_nama = orderData?.agen_nama || userContext?.nama || '';
+  const status = orderData?.status || 'MENUNGGU_PENJEMPUTAN';
+  const { jumlah_pengguna, warna, catatan } = orderData;
+
+  const total_pieces = totalWarna(warna);
+  const tanggal_order = getTanggalHariIni();
+  const jam_order = getJamSekarang();
+
+  const jadwalInfo = await tentukanJadwalTerdekat(tanggal_order, jam_order);
+
+  const orderDataV2 = {
+    // Field lama (backward compatibility)
+    agen_uid,
+    agen_nama,
+    jumlah_pengguna: Number(jumlah_pengguna),
+    total_pieces,
+    warna,
+    catatan: catatan || '',
+    jadwal_id: jadwalInfo ? jadwalInfo.jadwal_id : null,
+    jadwal_label: jadwalInfo ? jadwalInfo.jadwal_label : 'Belum ada jadwal disetting',
+    tanggal_kunjungan: jadwalInfo ? jadwalInfo.tanggal_kunjungan : null,
+    tanggal_order,
+    jam_order,
+    status: normalizeOrderStatus(status),
+
+    // Field baru (additive)
+    created_by_uid: userContext.uid,
+    created_by_nama: userContext.nama || userContext.email || '',
+    created_by_role: userContext.role || 'agen',
+    kurir_id: null,
+    kurir_nama: null,
+    operator_id: null,
+    operator_nama: null,
+    batch_id: null,
+    owner_note: "",
+    is_deleted: false,
+    created_at: serverTimestamp(),
+    updated_at: serverTimestamp()
+  };
+
+  const docRef = await addDoc(collection(db, 'orders'), orderDataV2);
+  return { success: true, id: docRef.id, data: orderDataV2 };
+}
+
+/* ── FUNGSI UPDATE STATUS DENGAN LOG (STATUS HISTORY) ── */
+export async function updateStatusOrderWithLog(orderId, newStatus, userContext, note = "") {
+  try {
+    const orderRef = doc(db, 'orders', orderId);
+    const orderSnap = await getDoc(orderRef);
+
+    if (!orderSnap.exists()) {
+      throw new Error('Order tidak ditemukan');
+    }
+
+    const currentData = orderSnap.data();
+    const currentStatus = normalizeOrderStatus(currentData.status);
+
+    // Validasi status baru
+    const validStatuses = [
+      'PENDING', 'MENUNGGU_PENJEMPUTAN',
+      'DIJEMPUT', 'DIPROSES', 'SELESAI'
+    ];
+
+    const targetStatus = normalizeOrderStatus(newStatus);
+    if (!validStatuses.includes(targetStatus)) {
+      throw new Error(`Status tidak valid: ${newStatus}`);
+    }
+
+    const batch = writeBatch(db);
+
+    // Update order document
+    batch.update(orderRef, {
+      status: targetStatus,
+      updated_at: serverTimestamp(),
+      updated_by_uid: userContext.uid,
+      updated_by_nama: userContext.nama || userContext.email || '',
+      updated_by_role: userContext.role || 'unknown'
+    });
+
+    // Add to status history subcollection
+    const statusHistoryRef = doc(collection(orderRef, 'status_history'));
+    batch.set(statusHistoryRef, {
+      status_before: currentStatus,
+      status_after: targetStatus,
+      changed_by_uid: userContext.uid,
+      changed_by_nama: userContext.nama || userContext.email || '',
+      changed_by_role: userContext.role || 'unknown',
+      changed_at: serverTimestamp(),
+      note: note || ''
+    });
+
+    await batch.commit();
+
+    return {
+      success: true,
+      orderId,
+      previousStatus: currentStatus,
+      newStatus: targetStatus
+    };
+
+  } catch (error) {
+    console.error('Error updating order status with log:', error);
+    throw error;
+  }
 }
 
 export async function getOrdersByPeriode(tanggalMulai, tanggalAkhir) {
@@ -88,7 +218,7 @@ export async function getOrdersByPeriode(tanggalMulai, tanggalAkhir) {
     orderBy('tanggal_order', 'asc')
   );
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  return snapshot.docs.map(normalizeOrderSnapshot);
 }
 
 /* ════════════════════════════════════════

@@ -1,26 +1,23 @@
 {
-  "outputDirectory": ".",
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/$1" }
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/index.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "**/*",
+      "use": "@vercel/static"
+    }
   ],
-  "headers": [
+  "routes": [
     {
-      "source": "/assets/js/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
+      "src": "/api/(.*)",
+      "dest": "/api/index.js"
     },
     {
-      "source": "/assets/css/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
-    },
-    {
-      "source": "/sw.js",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-cache" }
-      ]
+      "src": "/(.*)",
+      "dest": "/$1"
     }
   ]
 }

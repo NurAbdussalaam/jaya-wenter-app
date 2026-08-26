@@ -34,3 +34,5 @@ backups/*.json
 tools/migrate/agent_mapping.json
 tools/migrate/tagihan_mapping.json
 tools/migrate/verify_report.json
+
+.vercel

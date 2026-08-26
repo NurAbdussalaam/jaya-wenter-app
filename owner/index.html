@@ -172,9 +172,14 @@
     }
 
     const statusBadge = {
-      pending: '<span class="badge badge-pending">Pending</span>',
-      dijemput: '<span class="badge badge-process">Dijemput</span>',
-      selesai: '<span class="badge badge-done">Selesai</span>'
+      'MENUNGGU_PENJEMPUTAN': '<span class="badge badge-pending">Menunggu Penjemputan</span>',
+      'DIPROSES': '<span class="badge badge-process">Diproses</span>',
+      'DIJEMPUT': '<span class="badge badge-process">Dijemput</span>',
+      'SELESAI': '<span class="badge badge-done">Selesai</span>',
+      'PENDING': '<span class="badge badge-pending">Pending</span>',
+      'dijemput': '<span class="badge badge-process">Dijemput</span>',
+      'selesai': '<span class="badge badge-done">Selesai</span>',
+      'pending': '<span class="badge badge-pending">Pending</span>'
     };
 
     container.innerHTML = orders.slice(0, 8).map(o => `

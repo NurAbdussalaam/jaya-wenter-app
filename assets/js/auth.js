@@ -158,11 +158,10 @@ export async function gantiPasswordSendiri(passwordLama, passwordBaru) {
 }
 
 /* ── KONFIGURASI API BACKEND ─────────────────────────────────────────
-   Fase 1: Ganti nilai di bawah dengan URL Render setelah deploy.
-   Contoh: 'https://jaya-wenter-api.onrender.com/api'
+  Backend dideploy bersama frontend di Vercel.
    JANGAN hardcode credential di sini — gunakan Render environment variables.
    ──────────────────────────────────────────────────────────────────── */
-const API_BASE_URL = 'https://jaya-wenter-app-production.up.railway.app/api';
+const API_BASE_URL = 'https://jaya-wenter-app.vercel.app/api';
 
 /* ── FASE 3: RBAC HELPERS ────────────────────────────────────────────
    _loadPermissions(): ambil permissions dari collection roles di Firestore.
@@ -236,7 +235,7 @@ async function getIdToken() {
 }
 
 /* ── OWNER: TAMBAH AGEN BARU ──
-   Memanggil Backend API (Render) endpoint POST /api/users/create.
+  Memanggil endpoint POST /api/users/create di backend Vercel.
    v1.0.1: Hapus field email redundant — backend generate sendiri dari username.
 */
 export async function buatAgenBaru({ username, password, nama_lengkap, nomor_wa }) {

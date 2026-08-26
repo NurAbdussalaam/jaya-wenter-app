@@ -167,9 +167,11 @@
       }
 
       const statusBadge = {
-        pending: '<span class="badge badge-pending">Menunggu</span>',
-        dijemput: '<span class="badge badge-process">Dijemput</span>',
-        selesai: '<span class="badge badge-done">Selesai</span>'
+        PENDING: '<span class="badge badge-pending">Menunggu</span>',
+        MENUNGGU_PENJEMPUTAN: '<span class="badge badge-pending">Menunggu Penjemputan</span>',
+        DIPROSES: '<span class="badge badge-process">Diproses</span>',
+        DIJEMPUT: '<span class="badge badge-process">Dijemput</span>',
+        SELESAI: '<span class="badge badge-done">Selesai</span>'
       };
 
       container.innerHTML = orders.map(o => `
@@ -181,7 +183,7 @@
             <div class="list-item-meta">Jadwal: ${o.jadwal_label || '-'}</div>
           </div>
           <div class="list-item-right">
-            ${statusBadge[o.status] || statusBadge.pending}
+            ${statusBadge[o.status] || statusBadge.PENDING}
           </div>
         </div>
       `).join('');
