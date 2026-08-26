@@ -276,7 +276,7 @@
     const tanggal    = document.getElementById('input-tanggal-transaksi').value;
     const keterangan = document.getElementById('input-keterangan').value.trim();
     const nominalText = document.getElementById('input-nominal-transaksi').value;
-    const nominal    = Number(nominalText.replace(/\./g, '').replace(/\D/g, ''));
+    const nominal    = Number(nominalText.replace(/\./g, ''));
 
     if (!tanggal || !keterangan || !nominal) {
       showToast('Semua field wajib diisi', 'error');
