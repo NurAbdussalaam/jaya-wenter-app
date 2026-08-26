@@ -10,12 +10,17 @@
  * ✅ Tidak menyalin atau menyimpan kunci.json ke tempat lain
  * ✅ Aman dihapus setelah selesai digunakan
  *
- * Cara menjalankan (Windows CMD):
- *   node audit-orders.js
- *   (pastikan kunci.json ada di folder yang sama dengan script ini)
+ * ─────────────────────────────────────────────────────────────
+ * CARA MENJALANKAN (pilih salah satu):
  *
- * Cara menjalankan jika kunci.json di folder lain:
- *   node audit-orders.js --key=C:\path\ke\kunci.json
+ *  Cara 1 — Environment Variable (REKOMENDASI):
+ *    export FIREBASE_SERVICE_ACCOUNT='{"type":"service_account",...}'
+ *    node audit-orders.js
+ *
+ *  Cara 2 — File path via argumen --key:
+ *    node audit-orders.js --key=C:\path\ke\kunci.json
+ *
+ *  ❌ TANPA salah satu di atas, script akan berhenti dengan error.
  * ─────────────────────────────────────────────────────────────
  */
 
@@ -24,37 +29,64 @@ const fs    = require('fs');
 const path  = require('path');
 
 // ── 1. TENTUKAN LOKASI kunci.json ─────────────────────────────
+// Wajib: --key=/path/ke/kunci.json  ATAU  FIREBASE_SERVICE_ACCOUNT env var.
+// Tidak ada fallback path default — mencegah penggunaan credentials salah.
 function resolveKeyPath() {
-  // Cek argumen --key=...
+  // Prioritas 1: argumen --key=
   const keyArg = process.argv.find(a => a.startsWith('--key='));
-  if (keyArg) return keyArg.split('=').slice(1).join('=');
+  if (keyArg) {
+    return keyArg.split('=').slice(1).join('=');
+  }
 
-  // Default: kunci.json di folder yang sama dengan script ini
-  return 'E:\\back up F\\jaya-wenter-app\\kunci.json';
+  // Prioritas 2: environment variable FIREBASE_SERVICE_ACCOUNT
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    return 'ENV_VAR'; // penanda bahwa credentials dari env var
+  }
+
+  // Tidak ada cara untuk mendapatkan credentials
+  console.error('');
+  console.error('❌ Credentials tidak ditemukan. Sediakan salah satu:');
+  console.error('');
+  console.error('  Cara 1 — Environment Variable:');
+  console.error('    export FIREBASE_SERVICE_ACCOUNT=\'{"type":"service_account",...}\'');
+  console.error('    node audit-orders.js');
+  console.error('');
+  console.error('  Cara 2 — File path via argumen --key:');
+  console.error('    node audit-orders.js --key=C:\\path\\ke\\kunci.json');
+  console.error('');
+  process.exit(1);
 }
 
 // ── 2. INISIALISASI FIREBASE ADMIN ───────────────────────────
 function initFirebase() {
   const keyPath = resolveKeyPath();
 
-  if (!fs.existsSync(keyPath)) {
-    console.error('');
-    console.error('❌ File kunci.json tidak ditemukan di:');
-    console.error('   ' + keyPath);
-    console.error('');
-    console.error('Solusi:');
-    console.error('  1. Letakkan kunci.json di folder yang sama dengan audit-orders.js, ATAU');
-    console.error('  2. Jalankan dengan argumen: node audit-orders.js --key=C:\\path\\ke\\kunci.json');
-    console.error('');
-    process.exit(1);
-  }
-
   let serviceAccount;
-  try {
-    serviceAccount = JSON.parse(fs.readFileSync(keyPath, 'utf8'));
-  } catch (err) {
-    console.error('❌ kunci.json tidak valid JSON:', err.message);
-    process.exit(1);
+
+  if (keyPath === 'ENV_VAR') {
+    // Credentials dari environment variable
+    try {
+      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    } catch (err) {
+      console.error('❌ FIREBASE_SERVICE_ACCOUNT tidak valid JSON:', err.message);
+      process.exit(1);
+    }
+  } else {
+    // Credentials dari file
+    if (!fs.existsSync(keyPath)) {
+      console.error('');
+      console.error('❌ File tidak ditemukan di:');
+      console.error('   ' + keyPath);
+      console.error('');
+      process.exit(1);
+    }
+
+    try {
+      serviceAccount = JSON.parse(fs.readFileSync(keyPath, 'utf8'));
+    } catch (err) {
+      console.error('❌ File tidak valid JSON:', err.message);
+      process.exit(1);
+    }
   }
 
   try {

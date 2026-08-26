@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Keuangan Usaha – Jaya Wenter App</title>
 <meta name="theme-color" content="#1565C0">
-<link rel="manifest" href="../manifest.json">
-<link rel="stylesheet" href="../assets/css/main.css">
+<link rel="manifest" href="../manifest.json?v=1.0.1">
+<link rel="stylesheet" href="../assets/css/main.css?v=1.0.1">
 <script>
   if (window.location.search.includes('debug=1')) {
     document.write('<script src="https://cdn.jsdelivr.net/npm/eruda"><\/script>');
@@ -116,12 +116,12 @@
 </div>
 
 <script type="module">
-  import { requireAuth } from '../assets/js/auth.js';
-  import { tambahKeuangan, getKeuanganByPeriode, hapusKeuangan } from '../assets/js/db.js';
+  import { requireAuth } from '../assets/js/auth.js?v=1.0.1';
+  import { tambahKeuangan, getKeuanganByPeriode, hapusKeuangan } from '../assets/js/db.js?v=1.0.1';
   import {
     showToast, showConfirm, setButtonLoading, formatRupiah,
     getPeriodeRange, getTanggalHariIni, formatTanggalPendek
-  } from '../assets/js/utils.js';
+  } from '../assets/js/utils.js?v=1.0.1';
 
   const pageLoading = document.getElementById('page-loading');
   const appWrapper  = document.getElementById('app-wrapper');

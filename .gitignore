@@ -2,9 +2,23 @@
 kunci.json
 *.json.key
 service-account*.json
+firebase-credential*.json
+*credentials*.json
+*-credentials.json
+sa-key.json
+gcp-key.json
+gha-creds-*.json
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*.jks
 .env
 .env.*
 !.env.example
+secrets/
+credentials/
 
 # ── DEPENDENCIES ─────────────────────────────────────────────
 node_modules/

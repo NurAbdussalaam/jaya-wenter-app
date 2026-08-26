@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Jaya Wenter App — Login</title>
 <meta name="theme-color" content="#1565C0">
-<link rel="manifest" href="manifest.json">
-<link rel="icon" href="assets/icons/icon-192.png">
-<link rel="stylesheet" href="assets/css/main.css">
+<link rel="manifest" href="manifest.json?v=1.0.1">
+<link rel="icon" href="assets/icons/icon-192.png?v=1.0.1">
+<link rel="stylesheet" href="assets/css/main.css?v=1.0.1">
 
 <!-- ══════════════════════════════════════════════════════════
      MODE DEBUG (ERUDA) — Console mini untuk HP
@@ -67,12 +67,12 @@
 </div>
 
 <script type="module">
-  import { auth } from './assets/js/firebase-config.js';
+  import { auth } from './assets/js/firebase-config.js?v=1.0.1';
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
   import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-  import { db } from './assets/js/firebase-config.js';
-  import { login, getLoginRedirect } from './assets/js/auth.js';
-  import { showToast, setButtonLoading, validateRequired } from './assets/js/utils.js';
+  import { db } from './assets/js/firebase-config.js?v=1.0.1';
+  import { login, getLoginRedirect } from './assets/js/auth.js?v=1.0.1';
+  import { showToast, setButtonLoading, validateRequired } from './assets/js/utils.js?v=1.0.1';
 
   const pageLoading  = document.getElementById('page-loading');
   const loginWrapper = document.getElementById('login-wrapper');
@@ -100,7 +100,7 @@
   /* Daftarkan Service Worker untuk fitur PWA (installable + cache) */
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js').catch(() => {
+      navigator.serviceWorker.register('/sw.js?v=1.0.1').catch(() => {
         // Diamkan jika gagal register (misal saat dev tanpa HTTPS)
       });
     });
