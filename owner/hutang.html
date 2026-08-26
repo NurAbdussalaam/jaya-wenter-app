@@ -87,7 +87,7 @@
       </div>
       <div class="form-group">
         <label class="form-label">Nilai Hutang (Rp)</label>
-        <input type="number" class="form-control" id="input-nilai" placeholder="Contoh: 50000" min="1" required>
+        <input type="text" class="form-control" id="input-nilai" inputmode="numeric" placeholder="Contoh: 50.000" required>
         <div class="form-hint" id="hint-harga-otomatis"></div>
       </div>
       <div class="form-group">
@@ -115,7 +115,7 @@
     <form id="form-bayar">
       <div class="form-group">
         <label class="form-label">Tambah Pembayaran (Rp)</label>
-        <input type="number" class="form-control" id="input-nominal-bayar" placeholder="Contoh: 50000" min="1" required>
+        <input type="text" class="form-control" id="input-nominal-bayar" inputmode="numeric" placeholder="Contoh: 50.000" required>
       </div>
       <button type="submit" class="btn btn-success" id="btn-simpan-bayar">💳 Catat Pembayaran</button>
     </form>
@@ -283,9 +283,24 @@
   });
 
   /* ── FORM BAYAR ── */
+  function formatNominal(value) {
+    const digits = String(value).replace(/\D/g, '');
+    return digits ? Number(digits).toLocaleString('id-ID') : '';
+  }
+
+  function parseNominal(value) {
+    return Number(String(value).replace(/\./g, '').replace(/\D/g, '')) || 0;
+  }
+
+  ['input-nilai', 'input-nominal-bayar'].forEach((id) => {
+    document.getElementById(id).addEventListener('input', (e) => {
+      e.target.value = formatNominal(e.target.value);
+    });
+  });
+
   document.getElementById('form-bayar').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const nominal = Number(document.getElementById('input-nominal-bayar').value);
+    const nominal = parseNominal(document.getElementById('input-nominal-bayar').value);
 
     if (!nominal || nominal < 1) {
       showToast('Nominal pembayaran wajib diisi', 'error');
@@ -346,7 +361,7 @@
 
     if (harga > 0 && pieces > 0) {
       const estimasi = pieces * harga;
-      document.getElementById('input-nilai').value = estimasi;
+      document.getElementById('input-nilai').value = formatNominal(estimasi);
       hint.textContent = `Otomatis: ${pieces} pcs × ${formatRupiah(harga)} = ${formatRupiah(estimasi)} (bisa diedit manual)`;
     } else {
       hint.textContent = 'Harga per pieces belum disetting di Pengaturan';
@@ -361,7 +376,7 @@
     const agenNama = agenSelect.selectedOptions[0]?.dataset.nama;
     const pelanggan = document.getElementById('input-pelanggan').value.trim();
     const pieces = Number(document.getElementById('input-pieces').value);
-    const nilai = Number(document.getElementById('input-nilai').value);
+    const nilai = parseNominal(document.getElementById('input-nilai').value);
     const catatan = document.getElementById('input-catatan-hutang').value.trim();
 
     if (!agenUid || !pelanggan || !pieces || !nilai) {

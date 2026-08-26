@@ -499,6 +499,36 @@ select.form-control {
 }
 .btn-whatsapp:active { background: #128C7E; }
 
+.jenis-transaksi-btn {
+  flex: 1;
+  padding: 12px;
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.jenis-transaksi-btn.active.pemasukan {
+  border-color: var(--color-success);
+  background: var(--color-success);
+  color: #fff;
+}
+
+.jenis-transaksi-btn.active.pengeluaran {
+  border-color: var(--color-danger);
+  background: var(--color-danger);
+  color: #fff;
+}
+
+.jenis-transaksi-btn:not(.active):hover {
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+}
+
 /* ── 14. BADGE / STATUS ── */
 .badge {
   display: inline-flex;

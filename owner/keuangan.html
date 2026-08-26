@@ -92,8 +92,8 @@
       <div class="form-group">
         <label class="form-label">Jenis Transaksi</label>
         <div class="d-flex gap-sm">
-          <button type="button" id="btn-pemasukan" data-jenis="pemasukan" style="flex:1; padding:12px; border-radius:8px; font-size:1rem; font-weight:600; cursor:pointer; border:2px solid #1b5e20; background:#1b5e20; color:#fff;">📈 Pemasukan</button>
-          <button type="button" id="btn-pengeluaran" data-jenis="pengeluaran" style="flex:1; padding:12px; border-radius:8px; font-size:1rem; font-weight:600; cursor:pointer; border:2px solid #1565C0; background:transparent; color:#1565C0;">📉 Pengeluaran</button>
+          <button type="button" class="jenis-transaksi-btn active pemasukan" id="btn-pemasukan" data-jenis="pemasukan">📈 Pemasukan</button>
+          <button type="button" class="jenis-transaksi-btn pengeluaran" id="btn-pengeluaran" data-jenis="pengeluaran">📉 Pengeluaran</button>
         </div>
         <input type="hidden" id="input-jenis" value="pemasukan">
       </div>
@@ -107,7 +107,7 @@
       </div>
       <div class="form-group">
         <label class="form-label">Nominal (Rp)</label>
-        <input type="number" class="form-control" id="input-nominal-transaksi" placeholder="Contoh: 150000" min="1" required>
+        <input type="text" class="form-control" id="input-nominal-transaksi" inputmode="numeric" placeholder="Contoh: 150.000" required>
       </div>
       <button type="submit" class="btn btn-primary" id="btn-simpan-transaksi">Simpan Transaksi</button>
       <button type="button" class="btn btn-ghost mt-sm" id="btn-batal-transaksi">Batal</button>
@@ -241,13 +241,8 @@
   function updateJenisBtn(jenis) {
     const btnPemasukan   = document.getElementById('btn-pemasukan');
     const btnPengeluaran = document.getElementById('btn-pengeluaran');
-    if (jenis === 'pemasukan') {
-      btnPemasukan.style.cssText   = 'flex:1; padding:12px; border-radius:8px; font-size:1rem; font-weight:600; cursor:pointer; border:2px solid #1b5e20; background:#1b5e20; color:#fff;';
-      btnPengeluaran.style.cssText = 'flex:1; padding:12px; border-radius:8px; font-size:1rem; font-weight:600; cursor:pointer; border:2px solid #1565C0; background:transparent; color:#1565C0;';
-    } else {
-      btnPengeluaran.style.cssText = 'flex:1; padding:12px; border-radius:8px; font-size:1rem; font-weight:600; cursor:pointer; border:2px solid #b71c1c; background:#b71c1c; color:#fff;';
-      btnPemasukan.style.cssText   = 'flex:1; padding:12px; border-radius:8px; font-size:1rem; font-weight:600; cursor:pointer; border:2px solid #1565C0; background:transparent; color:#1565C0;';
-    }
+    btnPemasukan.classList.toggle('active', jenis === 'pemasukan');
+    btnPengeluaran.classList.toggle('active', jenis === 'pengeluaran');
     document.getElementById('input-jenis').value = jenis;
   }
 
@@ -266,12 +261,22 @@
   document.getElementById('btn-pemasukan').addEventListener('click', () => updateJenisBtn('pemasukan'));
   document.getElementById('btn-pengeluaran').addEventListener('click', () => updateJenisBtn('pengeluaran'));
 
+  function formatNominal(value) {
+    const digits = String(value).replace(/\D/g, '');
+    return digits ? Number(digits).toLocaleString('id-ID') : '';
+  }
+
+  document.getElementById('input-nominal-transaksi').addEventListener('input', (e) => {
+    e.target.value = formatNominal(e.target.value);
+  });
+
   document.getElementById('form-transaksi').addEventListener('submit', async (e) => {
     e.preventDefault();
     const jenis      = document.getElementById('input-jenis').value;
     const tanggal    = document.getElementById('input-tanggal-transaksi').value;
     const keterangan = document.getElementById('input-keterangan').value.trim();
-    const nominal    = Number(document.getElementById('input-nominal-transaksi').value);
+    const nominalText = document.getElementById('input-nominal-transaksi').value;
+    const nominal    = Number(nominalText.replace(/\./g, '').replace(/\D/g, ''));
 
     if (!tanggal || !keterangan || !nominal) {
       showToast('Semua field wajib diisi', 'error');

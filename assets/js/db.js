@@ -5,7 +5,7 @@
 
 import { db } from './firebase-config.js';
 import {
-  collection, doc, addDoc, updateDoc, deleteDoc, getDoc, getDocs,
+  collection, doc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, setDoc,
   query, where, orderBy, limit, onSnapshot, serverTimestamp,
   increment, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
@@ -417,18 +417,20 @@ export async function hapusKeuangan(transId) {
 export async function getSettings() {
   const docRef = doc(db, 'settings', 'app');
   const snap = await getDoc(docRef);
-  return snap.exists() ? snap.data() : {
+  if (snap.exists()) return snap.data();
+
+  const defaultSettings = {
     nomor_wa_owner: '',
     harga_per_pieces: 0,
     nama_usaha: 'Jaya Wenter App'
   };
+  await setDoc(docRef, { ...defaultSettings, created_at: serverTimestamp() });
+  return defaultSettings;
 }
 
 export async function updateSettings(data) {
   const docRef = doc(db, 'settings', 'app');
   await updateDoc(docRef, { ...data, updated_at: serverTimestamp() }).catch(async () => {
-    // Jika dokumen belum ada, buat baru
-    const { setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
     await setDoc(docRef, { ...data, updated_at: serverTimestamp() });
   });
   return { success: true };
