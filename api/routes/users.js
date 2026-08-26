@@ -7,6 +7,7 @@ const express = require('express');
 const admin   = require('firebase-admin');
 const router  = express.Router();
 const { verifyToken, requireOwner } = require('../middleware/auth');
+const WILAYAH_VALID = ['Barat', 'Timur', 'Tengah'];
 
 function usernameToEmail(username) {
   return `${username.toLowerCase().trim()}@jayawenter.local`;
@@ -65,6 +66,9 @@ router.post('/create', verifyToken, requireOwner, async (req, res) => {
     if (!validRoles.includes(role)) {
       return res.json({ success: false, message: `Role tidak valid. Pilih: ${validRoles.join(', ')}` });
     }
+    if ((role === 'agen_owner' || role === 'agen_staff') && wilayah && !WILAYAH_VALID.includes(wilayah)) {
+      return res.json({ success: false, message: `Wilayah tidak valid. Pilih: ${WILAYAH_VALID.join(', ')}` });
+    }
 
     await ensureMasterDocuments();
 
@@ -79,6 +83,7 @@ router.post('/create', verifyToken, requireOwner, async (req, res) => {
       await agentRef.set({
         nama: nama_lengkap.trim(),
         nomor_wa: nomor_wa?.trim() || '',
+        wilayah: wilayah || null,
         aktif: true,
         created_at: admin.firestore.FieldValue.serverTimestamp(),
         updated_at: admin.firestore.FieldValue.serverTimestamp()
@@ -108,7 +113,7 @@ router.post('/create', verifyToken, requireOwner, async (req, res) => {
       role,
       agent_id:   resolvedAgentId,
       agent_nama: resolvedAgentNama || null,
-      wilayah:    (role === 'kurir' && wilayah) ? wilayah.trim() : null,
+      wilayah:    ((role === 'agen_owner' || role === 'agen_staff' || role === 'kurir') && wilayah) ? wilayah.trim() : null,
       permissions_override: null,
       aktif: true,
       created_at: admin.firestore.FieldValue.serverTimestamp(),

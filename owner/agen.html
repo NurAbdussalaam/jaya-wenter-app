@@ -70,6 +70,15 @@
         <label class="form-label">Nomor WhatsApp Agen</label>
         <input type="text" class="form-control" id="input-wa" placeholder="Contoh: 081234567890" required>
       </div>
+      <div class="form-group">
+        <label class="form-label">Wilayah</label>
+        <select class="form-control" id="input-wilayah" required>
+          <option value="">Pilih wilayah</option>
+          <option value="Barat">Barat (Rabu &amp; Sabtu)</option>
+          <option value="Timur">Timur (Senin &amp; Kamis)</option>
+          <option value="Tengah">Tengah (Selasa &amp; Jumat)</option>
+        </select>
+      </div>
       <button type="submit" class="btn btn-primary" id="btn-simpan-agen">Simpan Agen</button>
       <button type="button" class="btn btn-ghost mt-sm" id="btn-batal-agen">Batal</button>
     </form>
@@ -94,6 +103,15 @@
       <div class="form-group">
         <label class="form-label">Nomor WhatsApp</label>
         <input type="text" class="form-control" id="edit-wa" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Wilayah</label>
+        <select class="form-control" id="edit-wilayah" required>
+          <option value="">Pilih wilayah</option>
+          <option value="Barat">Barat (Rabu &amp; Sabtu)</option>
+          <option value="Timur">Timur (Senin &amp; Kamis)</option>
+          <option value="Tengah">Tengah (Selasa &amp; Jumat)</option>
+        </select>
       </div>
       <div class="form-group">
         <label class="form-label">Status Akun</label>
@@ -168,6 +186,7 @@
     document.getElementById('edit-username').value = a.username;
     document.getElementById('edit-nama').value = a.nama_lengkap;
     document.getElementById('edit-wa').value = a.nomor_wa || '';
+    document.getElementById('edit-wilayah').value = a.wilayah || '';
     document.getElementById('edit-status').value = String(a.aktif);
     document.getElementById('modal-edit-agen').classList.add('active');
   }
@@ -181,11 +200,12 @@
     const nama_lengkap = document.getElementById('edit-nama').value.trim();
     const nomor_wa = document.getElementById('edit-wa').value.trim();
     const aktif = document.getElementById('edit-status').value === 'true';
+    const wilayah = document.getElementById('edit-wilayah').value;
 
     const btn = document.getElementById('btn-simpan-edit');
     setButtonLoading(btn, true);
 
-    const result = await editAgen(agenDipilih.id, { nama_lengkap, nomor_wa, aktif });
+    const result = await editAgen(agenDipilih.id, { nama_lengkap, nomor_wa, aktif, wilayah });
 
     setButtonLoading(btn, false, 'Simpan Perubahan');
 
@@ -246,8 +266,9 @@
     const username = document.getElementById('input-username').value.trim().toLowerCase().replace(/\s+/g, '_');
     const password = document.getElementById('input-password').value;
     const nomor_wa = document.getElementById('input-wa').value.trim();
+    const wilayah = document.getElementById('input-wilayah').value;
 
-    if (!nama_lengkap || !username || !password || !nomor_wa) {
+    if (!nama_lengkap || !username || !password || !nomor_wa || !wilayah) {
       showToast('Semua field wajib diisi', 'error');
       return;
     }
@@ -266,7 +287,7 @@
         return;
       }
 
-      const result = await buatAgenBaru({ username, password, nama_lengkap, nomor_wa });
+      const result = await buatAgenBaru({ username, password, nama_lengkap, nomor_wa, wilayah });
 
       if (!result.success) {
         throw new Error(result.message || 'Gagal menambahkan agen');

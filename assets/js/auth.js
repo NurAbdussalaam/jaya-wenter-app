@@ -257,13 +257,13 @@ async function getIdToken() {
   Memanggil endpoint POST /api/users/create di backend Vercel.
    v1.0.1: Hapus field email redundant — backend generate sendiri dari username.
 */
-export async function buatAgenBaru({ username, password, nama_lengkap, nomor_wa }) {
+export async function buatAgenBaru({ username, password, nama_lengkap, nomor_wa, wilayah }) {
   const idToken = await getIdToken();
   if (!idToken) return { success: false, message: 'Tidak terautentikasi' };
   return apiFetch(`${API_BASE_URL}/users/create`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-    body: JSON.stringify({ username, password, nama_lengkap, nomor_wa, role: 'agen_owner' })
+    body: JSON.stringify({ username, password, nama_lengkap, nomor_wa, wilayah, role: 'agen_owner' })
   });
 }
 
@@ -313,12 +313,13 @@ export async function getDaftarUser(role = null) {
 }
 
 /* ── OWNER: EDIT DATA USER (nama, nomor WA) via Firestore langsung ── */
-export async function editAgen(uid, { nama_lengkap, nomor_wa, aktif }) {
+export async function editAgen(uid, { nama_lengkap, nomor_wa, aktif, wilayah }) {
   try {
     const updates = {};
     if (nama_lengkap !== undefined) updates.nama_lengkap = nama_lengkap;
     if (nomor_wa     !== undefined) updates.nomor_wa     = nomor_wa;
     if (aktif        !== undefined) updates.aktif        = aktif;
+    if (wilayah      !== undefined) updates.wilayah      = wilayah || null;
     updates.updated_at = serverTimestamp();
     await updateDoc(doc(db, 'users', uid), updates);
     return { success: true };

@@ -9,6 +9,13 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getHariIndex, getNamaHari } from './utils.js';
 
+const JADWAL_WILAYAH = {
+  Timur: [1, 4],
+  Tengah: [2, 5],
+  Barat: [3, 6]
+};
+const JAM_BATAS_ORDER = 8 * 60;
+
 /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ AMBIL SEMUA JADWAL AKTIF ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
 export async function getJadwalAktif() {
   const q = query(
@@ -27,8 +34,15 @@ export async function getJadwalAktif() {
    2. Cari jadwal pertama yang >= waktu order saat ini
    3. Jika tidak ada di minggu ini, ambil jadwal pertama minggu depan
 */
-export async function tentukanJadwalTerdekat(tanggalOrder, jamOrder) {
-  const jadwalList = await getJadwalAktif();
+export async function tentukanJadwalTerdekat(tanggalOrder, jamOrder, wilayah = null) {
+  const jadwalList = JADWAL_WILAYAH[wilayah]
+    ? JADWAL_WILAYAH[wilayah].map(hariIndex => ({
+        hari_index: hariIndex,
+        hari: getNamaHari(hariIndex),
+        jam: '08:00',
+        id: `wilayah-${wilayah.toLowerCase()}-${hariIndex}`
+      }))
+    : await getJadwalAktif();
   if (jadwalList.length === 0) {
     return null; // Tidak ada jadwal disetting
   }
@@ -43,7 +57,10 @@ export async function tentukanJadwalTerdekat(tanggalOrder, jamOrder) {
     const menitJadwal = jamKeMenit(j.jam);
 
     // Jika hari sama tapi jam jadwal sudah lewat ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ dorong ke minggu depan
-    if (jarakHari === 0 && menitJadwal <= menitOrder) {
+    const lewatBatasOrder = JADWAL_WILAYAH[wilayah]
+      ? menitOrder >= JAM_BATAS_ORDER
+      : menitJadwal <= menitOrder;
+    if (jarakHari === 0 && lewatBatasOrder) {
       jarakHari = 7;
     }
 

@@ -16,12 +16,12 @@ import { tentukanJadwalTerdekat } from './jadwal.js';
    ORDER
    ════════════════════════════════════════ */
 
-export async function buatOrder({ agen_uid, agen_nama, jumlah_pengguna, warna, catatan }) {
+export async function buatOrder({ agen_uid, agen_nama, jumlah_pengguna, warna, catatan, wilayah }) {
   const total_pieces = totalWarna(warna);
   const tanggal_order = getTanggalHariIni();
   const jam_order = getJamSekarang();
 
-  const jadwalInfo = await tentukanJadwalTerdekat(tanggal_order, jam_order);
+  const jadwalInfo = await tentukanJadwalTerdekat(tanggal_order, jam_order, wilayah);
 
   const orderData = {
     agen_uid, agen_nama,
@@ -112,7 +112,7 @@ export async function buatOrderV2(orderData, userContext) {
   const tanggal_order = getTanggalHariIni();
   const jam_order = getJamSekarang();
 
-  const jadwalInfo = await tentukanJadwalTerdekat(tanggal_order, jam_order);
+  const jadwalInfo = await tentukanJadwalTerdekat(tanggal_order, jam_order, userContext?.wilayah);
 
   const orderDataV2 = {
     // Field lama (backward compatibility)

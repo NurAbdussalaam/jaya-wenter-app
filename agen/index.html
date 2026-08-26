@@ -131,17 +131,15 @@
 
   async function muatJadwalBerikutnya() {
     try {
-      const info = await tentukanJadwalTerdekat(getTanggalHariIni(), getJamSekarang());
+      const info = await tentukanJadwalTerdekat(getTanggalHariIni(), getJamSekarang(), currentUser.wilayah);
       const el = document.getElementById('jadwal-value');
       if (info) {
         const tgl = new Date(info.tanggal_kunjungan + 'T00:00:00');
         const tglLengkap = tgl.toLocaleDateString('id-ID', {
           weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
         });
-        const jamLabel = info.jam.replace(':', '.') + ' WIB';
         el.innerHTML = `
           <div class="jadwal-tanggal">${tglLengkap}</div>
-          <div class="jadwal-jam">Pukul ${jamLabel}</div>
         `;
       } else {
         el.textContent = 'Belum ada jadwal disetting owner';
@@ -180,7 +178,6 @@
           <div class="list-item-body">
             <div class="list-item-title">${formatTimestamp(o.created_at)}</div>
             <div class="list-item-sub">${o.total_pieces} pieces — ${ringkasWarna(o.warna)}</div>
-            <div class="list-item-meta">Jadwal: ${o.jadwal_label || '-'}</div>
           </div>
           <div class="list-item-right">
             ${statusBadge[o.status] || statusBadge.PENDING}

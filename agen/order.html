@@ -219,7 +219,7 @@
   /* ── PREVIEW JADWAL ── */
   async function tampilkanPreviewJadwal() {
     try {
-      const info = await tentukanJadwalTerdekat(getTanggalHariIni(), getJamSekarang());
+      const info = await tentukanJadwalTerdekat(getTanggalHariIni(), getJamSekarang(), currentUser.wilayah);
       document.getElementById('jadwal-preview').textContent = info
         ? info.jadwal_label
         : 'Belum ada jadwal disetting owner';
