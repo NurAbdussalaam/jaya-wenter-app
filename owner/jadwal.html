@@ -43,6 +43,13 @@
       <button class="filter-tab" data-tab="rekap">Rekap Kunjungan</button>
     </div>
 
+    <div class="filter-tabs" id="filter-wilayah" aria-label="Filter wilayah">
+      <button class="filter-tab active" data-wilayah="Semua">Semua</button>
+      <button class="filter-tab" data-wilayah="Barat">Barat</button>
+      <button class="filter-tab" data-wilayah="Timur">Timur</button>
+      <button class="filter-tab" data-wilayah="Tengah">Tengah</button>
+    </div>
+
     <!-- TAB: Setting Jadwal -->
     <div id="tab-setting">
       <div class="section-header" style="margin-top:0;">
@@ -110,7 +117,8 @@
 <script type="module">
   import { requireAuth } from '../assets/js/auth.js';
   import {
-    getJadwalAktif, tambahJadwal, hapusJadwal, toggleJadwal, getRekapKunjunganMendatang
+    getJadwalAktif, tambahJadwal, hapusJadwal, toggleJadwal, getRekapKunjunganMendatang,
+    getWilayahUntukHari
   } from '../assets/js/jadwal.js';
   import { showToast, showConfirm, setButtonLoading, formatTanggalPendek } from '../assets/js/utils.js';
 
@@ -119,6 +127,7 @@
 
   let daftarJadwal = [];
   let daftarRekap = [];
+  let filterWilayah = 'Semua';
 
   (async () => {
     await requireAuth('owner');
@@ -128,9 +137,9 @@
   })();
 
   /* ── TAB SWITCHING ── */
-  document.querySelectorAll('.filter-tab').forEach(tab => {
+  document.querySelectorAll('.filter-tab[data-tab]').forEach(tab => {
     tab.addEventListener('click', async () => {
-      document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.filter-tab[data-tab]').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
 
       const target = tab.dataset.tab;
@@ -143,13 +152,33 @@
     });
   });
 
+  document.querySelectorAll('#filter-wilayah .filter-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('#filter-wilayah .filter-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      filterWilayah = tab.dataset.wilayah;
+      renderJadwal();
+      renderRekap();
+    });
+  });
+
   /* ── MUAT JADWAL ── */
   async function muatJadwal() {
     const container = document.getElementById('list-jadwal');
     try {
       daftarJadwal = await getJadwalAktif();
 
-      if (daftarJadwal.length === 0) {
+      renderJadwal();
+    } catch (e) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Gagal memuat jadwal</div></div>`;
+    }
+  }
+
+  function renderJadwal() {
+    const container = document.getElementById('list-jadwal');
+    const jadwalTampil = daftarJadwal.filter(j => filterWilayah === 'Semua' || getWilayahUntukHari(j.hari_index) === filterWilayah);
+
+      if (jadwalTampil.length === 0) {
         container.innerHTML = `
           <div class="empty-state">
             <div class="empty-icon">📅</div>
@@ -159,12 +188,13 @@
         return;
       }
 
-      container.innerHTML = daftarJadwal.map((j, idx) => `
+      container.innerHTML = jadwalTampil.map((j, idx) => `
         <div class="card mb-sm fade-in">
           <div class="d-flex justify-between align-center">
             <div>
               <div class="font-bold">${j.hari}</div>
               <div class="text-secondary text-sm">${j.jam.replace(':', '.')} WIB</div>
+              <span class="badge badge-pending mt-sm">${getWilayahUntukHari(j.hari_index) || 'Semua Wilayah'}</span>
             </div>
             <div class="d-flex gap-sm align-center">
               <button class="btn-icon btn-toggle-jadwal" data-idx="${idx}" style="background: ${j.aktif ? 'var(--color-success-bg)' : 'var(--bg-tertiary)'}; color: ${j.aktif ? 'var(--color-success)' : 'var(--text-muted)'};" title="Aktif/Nonaktif">
@@ -178,7 +208,7 @@
 
       container.querySelectorAll('.btn-toggle-jadwal').forEach(btn => {
         btn.addEventListener('click', async () => {
-          const j = daftarJadwal[Number(btn.dataset.idx)];
+          const j = jadwalTampil[Number(btn.dataset.idx)];
           await toggleJadwal(j.id, !j.aktif);
           showToast(`Jadwal ${!j.aktif ? 'diaktifkan' : 'dinonaktifkan'}`, 'success');
           await muatJadwal();
@@ -187,7 +217,7 @@
 
       container.querySelectorAll('.btn-hapus-jadwal').forEach(btn => {
         btn.addEventListener('click', async () => {
-          const j = daftarJadwal[Number(btn.dataset.idx)];
+          const j = jadwalTampil[Number(btn.dataset.idx)];
           const ok = await showConfirm({
             icon: '🗑', title: 'Hapus Jadwal?',
             message: `Jadwal ${j.hari} ${j.jam} akan dihapus permanen.`,
@@ -201,9 +231,6 @@
         });
       });
 
-    } catch (e) {
-      container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Gagal memuat jadwal</div></div>`;
-    }
   }
 
   /* ── MUAT REKAP KUNJUNGAN ── */
@@ -212,7 +239,17 @@
     try {
       daftarRekap = await getRekapKunjunganMendatang();
 
-      if (daftarRekap.length === 0) {
+      renderRekap();
+    } catch (e) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Gagal memuat rekap</div></div>`;
+    }
+  }
+
+  function renderRekap() {
+    const container = document.getElementById('list-rekap');
+    const rekapTampil = daftarRekap.filter(r => filterWilayah === 'Semua' || r.wilayah === filterWilayah);
+
+      if (rekapTampil.length === 0) {
         container.innerHTML = `
           <div class="empty-state">
             <div class="empty-icon">📭</div>
@@ -221,13 +258,14 @@
         return;
       }
 
-      container.innerHTML = daftarRekap.map((r, idx) => `
+      container.innerHTML = rekapTampil.map((r, idx) => `
         <div class="list-item fade-in" data-idx="${idx}">
           <div class="list-item-icon">📅</div>
           <div class="list-item-body">
             <div class="list-item-title">${r.label}</div>
             <div class="list-item-sub">${formatTanggalPendek(r.tanggal_kunjungan)}</div>
             <div class="list-item-meta">${r.jumlah_agen} agen • ${r.total_pieces} pieces</div>
+            <span class="badge badge-pending mt-sm">${r.wilayah || 'Semua Wilayah'}</span>
           </div>
           <div class="list-item-right">
             <span class="badge badge-pending">${r.jumlah_agen} agen</span>
@@ -237,14 +275,11 @@
 
       container.querySelectorAll('.list-item').forEach(item => {
         item.addEventListener('click', () => {
-          const r = daftarRekap[Number(item.dataset.idx)];
+          const r = rekapTampil[Number(item.dataset.idx)];
           tampilkanDetailRekap(r);
         });
       });
 
-    } catch (e) {
-      container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Gagal memuat rekap</div></div>`;
-    }
   }
 
   function tampilkanDetailRekap(r) {
@@ -263,6 +298,10 @@
 
       document.getElementById('rekap-detail-content').innerHTML = `
         <div class="card mb-sm">
+          <div class="d-flex justify-between mb-sm">
+            <span class="text-secondary text-sm">Wilayah</span>
+            <span class="badge badge-pending">${r.wilayah || 'Semua Wilayah'}</span>
+          </div>
           <div class="d-flex justify-between mb-sm">
             <span class="text-secondary text-sm">Total Agen</span>
             <span class="font-bold">${r.jumlah_agen} agen</span>

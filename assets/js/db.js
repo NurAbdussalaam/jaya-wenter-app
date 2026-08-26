@@ -25,6 +25,7 @@ export async function buatOrder({ agen_uid, agen_nama, jumlah_pengguna, warna, c
 
   const orderData = {
     agen_uid, agen_nama,
+    wilayah: wilayah || null,
     jumlah_pengguna: Number(jumlah_pengguna),
     total_pieces,
     warna,
@@ -105,6 +106,7 @@ export async function buatOrderV2(orderData, userContext) {
   // Gunakan nilai default agar tidak ada field yang undefined
   const agen_uid = orderData?.agen_uid || userContext?.uid || '';
   const agen_nama = orderData?.agen_nama || userContext?.nama || '';
+  const wilayah = orderData?.wilayah || userContext?.wilayah || null;
   const status = orderData?.status || 'MENUNGGU_PENJEMPUTAN';
   const { jumlah_pengguna, warna, catatan } = orderData;
 
@@ -118,6 +120,7 @@ export async function buatOrderV2(orderData, userContext) {
     // Field lama (backward compatibility)
     agen_uid,
     agen_nama,
+    wilayah,
     jumlah_pengguna: Number(jumlah_pengguna),
     total_pieces,
     warna,

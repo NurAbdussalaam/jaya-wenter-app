@@ -16,6 +16,12 @@ const JADWAL_WILAYAH = {
 };
 const JAM_BATAS_ORDER = 8 * 60;
 
+export function getWilayahUntukHari(hariIndex) {
+  const wilayah = Object.entries(JADWAL_WILAYAH)
+    .find(([, hari]) => hari.includes(hariIndex));
+  return wilayah ? wilayah[0] : null;
+}
+
 /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ AMBIL SEMUA JADWAL AKTIF ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
 export async function getJadwalAktif() {
   const q = query(
@@ -152,7 +158,17 @@ export async function toggleJadwal(jadwalId, aktif) {
    Mengembalikan daftar agen yang harus dikunjungi pada jadwal tertentu,
    untuk tanggal kunjungan tertentu.
 */
-export async function getRekapKunjungan(jadwalId, tanggalKunjungan) {
+export async function getRekapKunjungan(jadwalId, tanggalKunjungan, wilayah = null) {
+  if (wilayah) {
+    const q = query(
+      collection(db, 'orders'),
+      where('tanggal_kunjungan', '==', tanggalKunjungan),
+      where('wilayah', '==', wilayah)
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  }
+
   const q = query(
     collection(db, 'orders'),
     where('jadwal_id', '==', jadwalId),
@@ -177,10 +193,12 @@ export async function getRekapKunjunganMendatang() {
     const jarakHari = (j.hari_index - getHariIndex(todayStr) + 7) % 7;
     const tanggalKunjungan = tambahHari(todayStr, jarakHari === 0 ? 0 : jarakHari);
 
-    const orders = await getRekapKunjungan(j.id, tanggalKunjungan);
+    const wilayah = getWilayahUntukHari(j.hari_index);
+    const orders = await getRekapKunjungan(j.id, tanggalKunjungan, wilayah);
 
     hasil.push({
       jadwal_id: j.id,
+      wilayah,
       label: `${j.hari} ${formatJamLabel(j.jam)}`,
       tanggal_kunjungan: tanggalKunjungan,
       jumlah_agen: new Set(orders.map(o => o.agen_uid)).size,
