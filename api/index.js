@@ -1,7 +1,7 @@
 /**
  * api/index.js
  * Entry point Backend API Jaya Wenter.
- * Deploy ke Render.com — tidak menggunakan Firebase CLI.
+ * Deploy sebagai Vercel Serverless Function.
  *
  * Arsitektur: Express.js + Firebase Admin SDK
  * Auth: Firebase ID Token via Authorization: Bearer header
@@ -32,7 +32,7 @@ console.log('[Firebase Admin] Initialized — project:', serviceAccount.project_
 // ── Express Setup ─────────────────────────────────────────────
 const app = express();
 
-// CORS — hanya izinkan request dari frontend Vercel
+// CORS — izinkan frontend Vercel; ALLOWED_ORIGIN dapat dikunci di environment.
 const allowedOrigin = process.env.ALLOWED_ORIGIN || '*';
 app.use(cors({
   origin: allowedOrigin,
@@ -65,12 +65,15 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, message: 'Internal server error' });
 });
 
-// ── Start Server ──────────────────────────────────────────────
+// ── Local server / Vercel handler ─────────────────────────────
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`[Jaya Wenter API] Running on port ${PORT}`);
-  console.log(`[CORS] Allowed origin: ${allowedOrigin}`);
-  console.log('[Routes] /api/health, /api/users, /api/agents, /api/permissions');
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`[Jaya Wenter API] Running on port ${PORT}`);
+    console.log(`[CORS] Allowed origin: ${allowedOrigin}`);
+    console.log('[Routes] /api/health, /api/users, /api/agents, /api/permissions');
+  });
+}
 
+// Vercel invokes the exported Express app as the serverless handler.
 module.exports = app;

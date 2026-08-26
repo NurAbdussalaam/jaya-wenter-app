@@ -159,7 +159,7 @@ export async function gantiPasswordSendiri(passwordLama, passwordBaru) {
 
 /* ── KONFIGURASI API BACKEND ─────────────────────────────────────────
   Backend dideploy bersama frontend di Vercel.
-   JANGAN hardcode credential di sini — gunakan Render environment variables.
+  JANGAN hardcode credential di sini — credential backend disimpan di Vercel.
    ──────────────────────────────────────────────────────────────────── */
 const API_BASE_URL = 'https://jaya-wenter-app.vercel.app/api';
 
@@ -204,8 +204,8 @@ function _getDashboardByRole(role) {
   return map[role] || '/index.html';
 }
 
-/* ── v1.0.1 PATCH 1: HELPER FETCH DENGAN TIMEOUT ────────────────────
-   Semua request ke Render API melewati helper ini.
+/* ── HELPER FETCH DENGAN TIMEOUT ────────────────────────────────────
+  Semua request backend melewati helper ini.
    - Timeout 10 detik via AbortController.
    - clearTimeout() selalu dipanggil (tidak ada memory leak).
    - Jika timeout: pesan "Koneksi lambat" yang mudah dipahami user.
