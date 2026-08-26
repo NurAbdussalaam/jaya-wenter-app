@@ -12,6 +12,46 @@ function usernameToEmail(username) {
   return `${username.toLowerCase().trim()}@jayawenter.local`;
 }
 
+async function ensureMasterDocuments() {
+  const firestore = admin.firestore();
+  const [ownerRole, agentRole, settings] = await Promise.all([
+    firestore.collection('roles').doc('owner').get(),
+    firestore.collection('roles').doc('agen_owner').get(),
+    firestore.collection('settings').doc('app').get()
+  ]);
+
+  const writes = [];
+  if (!ownerRole.exists) {
+    writes.push(firestore.collection('roles').doc('owner').set({
+      nama: 'owner',
+      label: 'Owner',
+      is_system: true,
+      permissions: ['*'],
+      created_by: 'system',
+      created_at: admin.firestore.FieldValue.serverTimestamp()
+    }));
+  }
+  if (!agentRole.exists) {
+    writes.push(firestore.collection('roles').doc('agen_owner').set({
+      nama: 'agen_owner',
+      label: 'Agen (Pemilik)',
+      is_system: true,
+      permissions: ['order.read', 'order.create', 'order.edit', 'order.delete'],
+      created_by: 'system',
+      created_at: admin.firestore.FieldValue.serverTimestamp()
+    }));
+  }
+  if (!settings.exists) {
+    writes.push(firestore.collection('settings').doc('app').set({
+      nomor_wa_owner: '',
+      harga_per_pieces: 0,
+      nama_usaha: 'Jaya Wenter App',
+      created_at: admin.firestore.FieldValue.serverTimestamp()
+    }));
+  }
+  await Promise.all(writes);
+}
+
 // POST /api/users/create
 router.post('/create', verifyToken, requireOwner, async (req, res) => {
   try {
@@ -25,6 +65,8 @@ router.post('/create', verifyToken, requireOwner, async (req, res) => {
     if (!validRoles.includes(role)) {
       return res.json({ success: false, message: `Role tidak valid. Pilih: ${validRoles.join(', ')}` });
     }
+
+    await ensureMasterDocuments();
 
     // Auto-generate agent_id jika role agen_owner dan agent_id tidak dikirim
     let resolvedAgentId = agent_id || null;
