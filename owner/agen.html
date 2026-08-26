@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Kelola Agen â€” Jaya Wenter App</title>
+<title>Kelola Agen &mdash; Jaya Wenter App</title>
 <meta name="theme-color" content="#1565C0">
 <link rel="manifest" href="../manifest.json">
 <link rel="stylesheet" href="../assets/css/main.css">
 <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-     MODE DEBUG (ERUDA) â€” Console mini untuk HP
+    MODE DEBUG (ERUDA) - Console mini untuk HP
      Aktif HANYA jika URL diakhiri ?debug=1
      Hapus blok ini nanti setelah selesai setup index Firebase.
      â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
@@ -23,17 +23,17 @@
 <body>
 
 <div id="page-loading" class="page-loading">
-  <div class="app-name">ðŸ§º Jaya Wenter App</div>
+  <div class="app-name">&#x1F9FA; Jaya Wenter App</div>
   <div class="spinner"></div>
 </div>
 
 <div class="app-wrapper hidden" id="app-wrapper">
   <header class="app-header">
-    <button class="back-btn" onclick="window.location.href='index.html'">â†</button>
+    <button class="back-btn" onclick="window.location.href='index.html'">&larr;</button>
     <div class="header-title">
       <h1>Kelola Agen</h1>
     </div>
-    <button class="btn-icon" id="btn-tambah-agen" title="Tambah Agen">âž•</button>
+    <button class="btn-icon" id="btn-tambah-agen" title="Tambah Agen">&#x2795;</button>
   </header>
 
   <div class="page-content">
@@ -103,8 +103,8 @@
         </select>
       </div>
       <button type="submit" class="btn btn-primary" id="btn-simpan-edit">Simpan Perubahan</button>
-      <button type="button" class="btn btn-outline mt-sm" id="btn-reset-pw">ðŸ”‘ Reset Password</button>
-      <button type="button" class="btn btn-danger mt-sm" id="btn-hapus-agen">ðŸ—‘ Hapus Agen</button>
+      <button type="button" class="btn btn-outline mt-sm" id="btn-reset-pw">&#x1F511; Reset Password</button>
+      <button type="button" class="btn btn-danger mt-sm" id="btn-hapus-agen">&#x1F5D1; Hapus Agen</button>
       <button type="button" class="btn btn-ghost mt-sm" id="btn-batal-edit">Batal</button>
     </form>
   </div>
@@ -138,13 +138,13 @@
     const container = document.getElementById('list-agen');
 
     if (daftarAgen.length === 0) {
-      container.innerHTML = `<div class="empty-state"><div class="empty-icon">ðŸ‘¥</div><div class="empty-title">Belum ada agen</div><div class="empty-sub">Tap tombol âž• untuk menambah agen</div></div>`;
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">&#x1F465;</div><div class="empty-title">Belum ada agen</div><div class="empty-sub">Klik tombol &#x2795; untuk menambah agen</div></div>`;
       return;
     }
 
     container.innerHTML = daftarAgen.map((a, idx) => `
       <div class="list-item fade-in" data-idx="${idx}">
-        <div class="list-item-icon">${a.aktif ? 'ðŸ‘¤' : 'ðŸš«'}</div>
+        <div class="list-item-icon">${a.aktif ? '&#x1F464;' : '&#x1F6AB;'}</div>
         <div class="list-item-body">
           <div class="list-item-title">${a.nama_lengkap}</div>
           <div class="list-item-sub">@${a.username}</div>
@@ -214,7 +214,7 @@
 
   document.getElementById('btn-hapus-agen').addEventListener('click', async () => {
     const ok = await showConfirm({
-      icon: 'ðŸ—‘', title: 'Hapus Agen Ini?',
+      icon: '&#x1F5D1;', title: 'Hapus Agen Ini?',
       message: `${agenDipilih.nama_lengkap} akan dihapus permanen beserta akses loginnya.`,
       labelOk: 'Ya, Hapus', tipOk: 'danger'
     });
@@ -229,7 +229,7 @@
     }
   });
 
-  /* â”€â”€ MODAL TAMBAH AGEN â”€â”€ */
+  /* MODAL TAMBAH AGEN */
   const modalTambah = document.getElementById('modal-tambah-agen');
   document.getElementById('btn-tambah-agen').addEventListener('click', () => {
     modalTambah.classList.add('active');
