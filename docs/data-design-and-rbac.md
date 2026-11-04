@@ -1,6 +1,6 @@
 # Desain Data dan RBAC — Jaya Wenter (Phase 1, tahap 1)
 
-Status: **DRAFT bertahap**. Bagian 1 (pembayaran dan hutang) disetujui; Bagian 2-3 disetujui; Bagian 4 disetujui; Bagian 5 disetujui; Bagian 6-8 menyusul.
+Status: **FINAL untuk tahap 1.** Bagian 1-8 semuanya disetujui (2026-11-04). Menunggu keputusan memulai tahap 2.
 Dasar: `docs/courier-dashboard-gap-analysis.md` v2 (27 keputusan). Nomor OQ merujuk ke dokumen itu.
 Batasan: konseptual saja. **Tidak ada SQL, tabel, migrasi, RLS, bucket, API, atau kode.** Angka dalam contoh adalah ilustrasi.
 
@@ -13,9 +13,9 @@ Batasan: konseptual saja. **Tidak ada SQL, tabel, migrasi, RLS, bucket, API, ata
 | 3 | Master: agen, tarif, metode pembayaran | **Disetujui 2026-11-03** |
 | 4 | Penugasan kurir dan jadwal/kunjungan | **Disetujui 2026-11-03** |
 | 5 | Order, riwayat status, foto | **Disetujui 2026-11-03** |
-| 6 | Setoran, peringatan, konflik offline, audit | Menunggu |
-| 7 | Matriks izin dan aturan baris per peran | Menunggu |
-| 8 | Aturan hari bisnis Asia/Jakarta | Menunggu |
+| 6 | Setoran, peringatan, konflik offline, audit | **Disetujui 2026-11-04** |
+| 7 | Matriks izin dan aturan baris per peran | **Disetujui 2026-11-04** |
+| 8 | Aturan hari bisnis Asia/Jakarta | **Disetujui 2026-11-04** |
 
 ---
 
@@ -368,4 +368,223 @@ OQ-11, 12, 13, 14, 15, 16, 19, 21, 22, 23, 30, 35, 41, 42 (lihat `courier-dashbo
 
 ---
 
-Dokumen berhenti di Bagian 5. Bagian 6-8 menunggu persetujuan.
+# Bagian 6. Setoran, peringatan, konflik offline, dan audit
+
+## 6.1 Prinsip
+
+| Prinsip | Arti |
+|---|---|
+| Server adalah sumber kebenaran | Data di perangkat kurir hanyalah antrean; yang berlaku adalah yang diterima server (OQ-21) |
+| Dua pihak untuk uang | Setoran dikonfirmasi kurir (menyerahkan) lalu owner/admin (menerima); orang yang sama boleh memegang dua peran, tetapi **ditandai** (OQ-20) |
+| Peringatan tidak memblokir | Kelalaian foto, selisih hitungan, atau keterlambatan memunculkan peringatan, bukan penolakan |
+| Hanya tambah | Setoran, konflik, peringatan, dan audit tidak diubah atau dihapus; koreksi lewat entri pembalik |
+
+## 6.2 Setoran
+
+| Entitas | Isi utama | Aturan integritas |
+|---|---|---|
+| Setoran | kurir, tanggal bisnis, jumlah diserahkan (kata kurir), jumlah diterima (kata penerima), penerima, status, catatan | Per kejadian (bukan per hari); dua langkah: kurir mengonfirmasi, lalu owner/admin mengonfirmasi (OQ-3) |
+| Selisih setoran | setoran, jumlah selisih, status (kekurangan kurir terbuka / diputuskan), keputusan, alasan, diputuskan oleh | **Default: kekurangan kurir terbuka**; owner/admin dapat memutuskan per kasus (dihapuskan, dipotong, dicicil) dengan alasan |
+| Saldo tunai kurir | Turunan, tidak disimpan | tunai diterima - pengembalian tunai terverifikasi - biaya kunjungan khusus - setoran terkonfirmasi - kekurangan terbuka tidak dihitung ganda (rumus di Bagian 1) |
+
+Status setoran: DIAJUKAN_KURIR, DITERIMA, DITERIMA_DENGAN_SELISIH, DIKOREKSI (lewat entri pembalik).
+
+## 6.3 Katalog peringatan
+
+| Peringatan | Pemicu | Tampil ke | Memblokir? |
+|---|---|---|---|
+| Foto terlambat | Foto belum ada setelah 2 hari | kurir, owner/admin | Tidak |
+| Foto dilewati | Dilewati dengan alasan | owner/admin | Tidak |
+| Selisih hitungan | Hitungan workshop berbeda dari hitungan jemput (OQ-48) | owner/admin, agen | Tidak |
+| Harga perlu konfirmasi | Item PERLU_KONFIRMASI sebelum SEDANG_DIPROSES | workshop, owner/admin | **Ya**, gerbang harga (OQ-42, OQ-49) |
+| Harga diubah workshop | Perubahan setelah kunci | agen, kurir | Tidak |
+| Kurir nonaktif memegang order | Kurir dinonaktifkan saat memegang order (OQ-9) | owner/admin | Tidak |
+| Kunjungan gagal beruntun | 3 kali berturut-turut untuk agen yang sama (OQ-44) | owner/admin | Tidak |
+| Pembayaran offline | Setiap pembayaran tunai yang dicatat offline | owner/admin | Tidak |
+| Konfirmasi oleh orang yang sama | Dua pihak diisi satu orang | owner/admin | Tidak |
+| Setoran selisih | Jumlah diterima berbeda dari jumlah diserahkan | owner/admin | Tidak |
+| Sinkron offline lewat batas | Belum tersinkron setelah sekitar 24 jam | owner/admin, kurir | Tidak |
+
+## 6.4 Offline dan konflik
+
+| Aturan | Keterangan |
+|---|---|
+| Yang boleh offline | Mencatat hitungan, foto (antre unggah), perubahan status; pembayaran offline **hanya tunai** |
+| Pembayaran offline | Ditandai, tidak dapat diubah, memakai **kunci idempotensi** agar tidak tercatat ganda saat diulang |
+| Batas sinkron | Sekitar 24 jam; lewat batas tidak ditolak otomatis, melainkan **ditandai** untuk ditinjau |
+| Konflik | Dua perubahan bertabrakan pada baris yang sama (mis. status berbeda dari dua perangkat): **ditahan**, tidak diterapkan otomatis; entri konflik menyimpan kedua versi |
+| Peninjauan | owner/admin memilih versi yang berlaku atau menggabungkan, dengan alasan; keduanya tercatat |
+| Transfer/QRIS offline | Tidak diizinkan (bukti dan verifikasi perlu koneksi) |
+
+## 6.5 Audit
+
+| Hal | Aturan |
+|---|---|
+| Isi | siapa, **peran aktif**, kapan (UTC + hari bisnis Asia/Jakarta), tindakan, objek, nilai sebelum, nilai sesudah, alasan, perangkat/sumber (online/offline) |
+| Apa yang dicatat | Perubahan status, harga, tarif, tagihan, pembayaran, setoran, peran, penugasan, jadwal, penonaktifan akun, keputusan konflik |
+| Sifat | Hanya tambah; tidak dapat diubah atau dihapus oleh siapa pun, termasuk owner |
+| Undo | Dicatat sebagai tindakan sendiri, bukan penghapusan |
+| Akses | owner dan admin (izin eksplisit) melihat semua; kurir melihat riwayat tindakannya sendiri |
+
+## 6.6 Pertanyaan baru dari Bagian 6 (dengan usul paling aman)
+
+| No | Pertanyaan | Usul | Dampak |
+|---|---|---|---|
+| OQ-51 | **TERJAWAB 2026-11-04 (setuju usul).** Siapa mencatat cicilan hutang berikutnya? | Kurir bila menerima **tunai** saat kunjungan (ikut saldo kurir); owner/admin bila agen **mentransfer** ke rekening (dengan bukti); keduanya terhubung ke agen, alokasi sesuai pola A/B | Izin `pembayaran:catat` untuk kurir dan owner/admin |
+| OQ-52 | **TERJAWAB 2026-11-04 (setuju usul).** Batas waktu peninjauan konflik offline? | Peringatan bila **3 hari** belum ditinjau; data konflik tidak berlaku sampai diputuskan | Ambang peringatan |
+| OQ-53 | **TERJAWAB 2026-11-04 (setuju usul).** Lama penyimpanan audit? | **Permanen** (barisnya kecil, tanpa foto); tidak ada penghapusan otomatis | Tidak ada pembersihan terjadwal untuk audit |
+
+## 6.7 Keputusan yang menjadi dasar Bagian 6
+
+OQ-3, 9, 19, 20, 21, 22, 23, 44, 48 (lihat `courier-dashboard-gap-analysis.md` bagian 17 dan Bagian 1, 4, 5 dokumen ini).
+
+---
+
+# Bagian 7. Matriks izin dan aturan baris per peran
+
+Lambang: **Y** = boleh; **-** = tidak; **B** = boleh dengan batas baris (lihat 7.2). Daftar izin mengikuti katalog 2.3. Isi matriks adalah **data seed**; editor izin ditunda (OQ-10). Satu orang dapat memegang beberapa peran; izin yang berlaku mengikuti **peran aktif**.
+
+## 7.1 Matriks
+
+| Sumber daya : aksi | Owner | Admin | Kurir | Operasional | Agen pemilik | Agen staf |
+|---|---|---|---|---|---|---|
+| order : baca | Y | Y | B | B | B | B |
+| order : buat | Y | Y | B | - | B | B (OQ-56) |
+| order : ubah-perkiraan | Y | Y | - | - | B | B |
+| order : batalkan | Y | Y | B (hanya MENUNGGU_PENJEMPUTAN) | - | - | - |
+| order : ajukan-pembatalan | - | - | B (setelah jemput) | - | - | - |
+| order_item : hitung-kurir | - | - | B | - | - | - |
+| order_item : verifikasi | Y | Y | - | Y | - | - |
+| order_item : ubah-pasca-kunci | Y | Y | - | Y (alasan wajib) | - | - |
+| persetujuan hitungan jemput | - | - | - | - | B | B (OQ-56) |
+| konfirmasi harga | Y (atas nama) | Y (atas nama) | - | Y (mencatat) | B | B (OQ-56) |
+| status_order : transisi-kurir | - | - | B | - | - | - |
+| status_order : transisi-workshop | Y | Y | - | Y | - | - |
+| status_order : koreksi-owner-admin | Y | Y | - | - | - | - |
+| status_order : undo singkat | B (tindakannya sendiri) | B | B | B | - | - |
+| foto : unggah / baca | Y | Y | B | B | B (baca) | B (baca) |
+| foto : tandai-hold / permanen | Y | Y | - | - | - | - |
+| foto : lewati-dengan-alasan | Y | Y | Y | Y | - | - |
+| titipan, pembayaran : catat | Y | Y | B (tunai) | - | - | - |
+| titipan, pembayaran, kredit : baca | Y | Y | B (agen yang dilayani) | - (usul, OQ-55) | B | - |
+| pengembalian : catat | - | - | B | - | - | - |
+| pengembalian : konfirmasi | - | - | - | - | B | - |
+| koreksi (pembalik) keuangan | Y | Y (izin eksplisit) | - | - | - | - |
+| setoran : ajukan | - | - | B | - | - | - |
+| setoran : konfirmasi, tangani-selisih | Y | Y | - | - | - | - |
+| kunjungan : baca / atur-urutan / tutup-tugas | Y | Y | B | - | - | - |
+| kunjungan : tambah-tujuan-custom | Y | Y | B (agennya) | - | - | - |
+| kunjungan : atur-frekuensi | Y | Y | B (agennya) | - | - | - |
+| penugasan : default / sementara / massal | Y | Y | - | - | - | - |
+| kurir : buat, aktif-nonaktif, reset-sandi | Y | - | - | - | - | - |
+| kurir : daftar | Y | Y | - | - | - | - |
+| peran_per_orang : tetapkan / cabut | Y | - | - | - | - | - |
+| wilayah, tarif, metode_pembayaran : baca | Y | Y | Y | Y | - | - |
+| wilayah, tarif, metode_pembayaran : kelola | Y | - (usul, OQ-54) | - | - | - | - |
+| agen : baca | Y | Y | B | B | B (miliknya) | B (miliknya) |
+| agen : buat | Y | B (izin eksplisit, OQ-37) | - | - | - | - |
+| agen : ubah / ubah-type-pola | Y | Y | - | - | - | - |
+| antrean_peninjauan : baca / putuskan | Y | Y | - | - | - | - |
+| peringatan : baca | Y | Y | B (miliknya) | B | B (terkait agennya) | - |
+| audit : baca | Y | B (izin eksplisit) | B (tindakannya sendiri) | B (tindakannya sendiri) | - | - |
+
+## 7.2 Aturan baris (dijaga database, bukan hanya layar)
+
+| Peran | Baris yang boleh dilihat atau diubah |
+|---|---|
+| Owner | Semua |
+| Admin | Semua data operasional; **tidak** mengelola master, akun kurir, atau peran per orang; bukan owner |
+| Kurir | Order, kunjungan, dan agen yang menjadi tanggung jawabnya (kurir sementara > default agen > wilayah, Bagian 4); keuangan hanya untuk agen yang ia layani dan saldo tunainya sendiri; tidak melihat order agen lain (OQ-43) |
+| Operasional | Order dari DITERIMA_WORKSHOP sampai SIAP_DIANTAR; tidak melihat keuangan agen |
+| Agen pemilik | Hanya agennya sendiri: order, tagihan, titipan, hutang, kredit, notifikasi |
+| Agen staf | Hanya order agennya sendiri; **tanpa keuangan** (keputusan pemilik: hanya agen pemilik melihat keuangan agen) |
+
+## 7.3 Aturan tambahan
+
+| Aturan | Keterangan |
+|---|---|
+| Tidak ada izin diwariskan otomatis | Admin tidak otomatis memperoleh izin owner (admin bukan owner) |
+| Peran aktif menentukan izin | Orang dengan peran kurir dan owner memakai izin sesuai peran yang dipilih saat bertindak; audit mencatatnya |
+| Pencabutan segera berlaku | Nonaktif atau cabut peran mengakhiri sesi dan akses baru |
+| Nol akses default | Tabel baru tidak terbuka sampai diberi aturan; tidak ada akses anonim ke data atau foto |
+| Foto privat | Dibaca lewat tautan sementara yang mengikuti aturan baris order |
+| Dua pihak | Tindakan yang menuntut dua pihak (setoran, pengembalian, persetujuan hitungan) ditandai bila dilakukan orang yang sama (OQ-27) |
+
+## 7.4 Pertanyaan baru dari Bagian 7 (dengan usul paling aman)
+
+| No | Pertanyaan | Usul | Dampak |
+|---|---|---|---|
+| OQ-54 | **TERJAWAB 2026-11-04 (setuju usul).** Apakah admin boleh mengelola master (tarif, wilayah, metode pembayaran)? | **Tidak**; owner saja, admin hanya membaca. Dapat diberikan per orang lewat izin eksplisit nanti | Pemisahan owner/admin |
+| OQ-55 | **TERJAWAB 2026-11-04 (setuju usul).** Apakah operasional (workshop) boleh melihat pembayaran dan hutang agen? | **Tidak**; hanya order dan tagihan item yang perlu diproses | Aturan baris operasional |
+| OQ-56 | **TERJAWAB 2026-11-04 (diubah pemilik).** Apa yang boleh dilakukan agen staf? | Boleh **membuat dan melihat order**, **menyetujui hitungan jemput**, dan **mengonfirmasi harga** (diubah pemilik); **tidak** boleh titipan, pengembalian, atau melihat keuangan (hanya agen pemilik) | Pembagian pemilik vs staf |
+
+## 7.5 Keputusan yang menjadi dasar Bagian 7
+
+OQ-7, 8, 10, 11, 17, 20, 27, 37, 38, 43 (lihat `courier-dashboard-gap-analysis.md` bagian 17 dan Bagian 2, 4, 5, 6 dokumen ini).
+
+---
+
+# Bagian 8. Aturan hari bisnis (Asia/Jakarta)
+
+## 8.1 Prinsip
+
+| Prinsip | Arti |
+|---|---|
+| Zona bisnis tunggal | Semua aturan hari bisnis memakai **Asia/Jakarta (UTC+7, tanpa waktu musim panas)**, apa pun zona waktu perangkat atau lokasi pengguna |
+| Simpan UTC, hitung hari bisnis di server | Waktu disimpan sebagai titik waktu absolut (UTC); **hari bisnis diturunkan server**, bukan dikirim perangkat |
+| Jam server menang | Waktu perangkat dicatat sebagai informasi, tidak dipakai untuk menentukan hari bisnis atau batas waktu |
+| Satu definisi | Hari bisnis = tanggal kalender Asia/Jakarta, dari 00:00 sampai 23:59:59 (OQ-57) |
+
+## 8.2 Aturan per hal
+
+| Hal | Aturan |
+|---|---|
+| Tanggal bisnis order, kunjungan, setoran, pembayaran | Diturunkan server dari waktu kejadian diterima, dicatat sebagai kolom tanggal bisnis |
+| Pembentukan kunjungan harian | Dibuat sekali per hari bisnis, saat hari bisnis dimulai atau saat pertama dibutuhkan; menghindari duplikat (Bagian 4) |
+| Nomor nota | Tanggal dan jam di dalam nomor memakai waktu Asia/Jakarta (OQ-50) |
+| Batas foto menyusul (2 hari) | Dihitung dalam **hari bisnis kalender**: dari tanggal bisnis kejadian sampai akhir hari bisnis ke-2 (OQ-58) |
+| Penghapusan berkas foto (30 hari) | Dihitung dari tanggal bisnis foto, dijalankan setelah akhir hari bisnis ke-30 |
+| Retensi bukti bayar | Selama hutang terbuka + 1 tahun, dihitung dari tanggal bisnis hutang lunas; tanda tahan mengalahkan semuanya |
+| Batas undo (sekitar 5 menit), sinkron offline (sekitar 24 jam), peninjauan konflik (3 hari) | Dihitung **berdasarkan lama waktu berlalu**, bukan pergantian hari bisnis, dari jam server |
+| Entri offline | Menyimpan dua waktu: waktu kejadian menurut perangkat dan waktu diterima server; **tanggal bisnis memakai waktu kejadian bila selisih dengan jam server masih wajar, bila tidak, memakai waktu diterima server dan ditandai** (OQ-59) |
+| Laporan dan rekap harian | Dikelompokkan menurut tanggal bisnis Asia/Jakarta; pemilik di zona lain tetap melihat jam bisnis |
+| Tampilan waktu | Selalu ditampilkan dalam Asia/Jakarta dengan penanda zona bila perangkat berbeda zona |
+| Hari libur | Tidak ada kalender libur di Phase 1; jadwal tetap berjalan, owner/admin atau kurir dapat meniadakan kunjungan dengan alasan (OQ-60) |
+
+## 8.3 Pertanyaan baru dari Bagian 8 (dengan usul paling aman)
+
+| No | Pertanyaan | Usul | Dampak |
+|---|---|---|---|
+| OQ-57 | **TERJAWAB 2026-11-04 (setuju usul).** Hari bisnis berganti pukul berapa? | **00:00 Asia/Jakarta** (tanggal kalender biasa); bila nanti ada kerja lewat tengah malam yang membingungkan, jam pergantian dapat dijadikan pengaturan | Definisi tunggal hari bisnis |
+| OQ-58 | **TERJAWAB 2026-11-04 (setuju usul).** "2 hari" untuk foto menyusul: 48 jam atau 2 hari bisnis? | **2 hari bisnis kalender** (sampai akhir hari ke-2), lebih mudah dipahami kurir dan laporan | Perhitungan peringatan foto terlambat |
+| OQ-59 | **TERJAWAB 2026-11-04 (setuju usul).** Perangkat kurir offline dengan jam salah: pakai jam apa? | Pakai waktu kejadian bila selisih dengan server **kurang dari 5 menit**; lebih dari itu pakai waktu diterima server dan **tandai** untuk ditinjau (angka dapat diubah) | Penanda jam perangkat menyimpang |
+| OQ-60 | **TERJAWAB 2026-11-04 (setuju usul).** Perlu kalender hari libur? | **Belum di Phase 1**; kunjungan dapat ditiadakan manual dengan alasan | Menunda tabel libur |
+
+## 8.4 Keputusan yang menjadi dasar Bagian 8
+
+Aturan terkunci: zona bisnis Asia/Jakarta; OQ-21, 22, 23, 44, 50, 52 (lihat Bagian 4-6 dokumen ini).
+
+---
+
+# Penutup: ringkasan akhir
+
+## Status keputusan
+
+| Hal | Isi |
+|---|---|
+| Keputusan tercatat | OQ-1 sampai OQ-60, seluruhnya terjawab (OQ-1..27 di `courier-dashboard-gap-analysis.md`; OQ-28..60 di dokumen ini) |
+| Cakupan | Bagian 1 pembayaran dan hutang; 2 identitas dan izin; 3 master; 4 penugasan dan kunjungan; 5 order dan foto; 6 setoran, offline, audit; 7 matriks izin; 8 hari bisnis |
+| Yang belum dibuat | Kode, tabel, migrasi, aturan RLS, bucket, API, deploy. Semuanya menunggu persetujuan tahap berikutnya |
+
+## Sisa yang masih terbuka
+
+| No | Hal | Kapan diputuskan |
+|---|---|---|
+| 1 | Lokasi dan format arsip ekspor data lama, dan kapan boleh dihapus (OQ-12) | Sebelum data lama diekspor, bukan sebelum tahap 2 |
+| 2 | Angka yang dapat diubah: undo 5 menit, sinkron offline 24 jam, foto menyusul 2 hari, peninjauan konflik 3 hari, ambang kunjungan gagal 3 kali, ambang harga 2x baku, toleransi jam perangkat 5 menit, daftar ukuran per jenis | Setelah uji lapangan tahap 7 |
+| 3 | Keputusan yang diserahkan pemilik kepada saya ("pilihkan yang paling aman") | **Ditinjau ulang setelah uji lapangan**; ditandai usul paling aman di tiap bagian |
+| 4 | Ditunda ke phase berikutnya: editor izin per peran, fitur kirim WhatsApp ke customer, kalender hari libur | Setelah Phase 1 stabil |
+
+## Langkah berikutnya
+
+Tahap 2 Phase 1: fondasi (login ganda, multi-peran, RLS, hari bisnis, audit). **Tidak dimulai sebelum Anda menyetujuinya.** Seperti tahap sebelumnya, saya mulai dengan rencana teknis tertulis (tanpa kode) untuk disetujui terlebih dahulu.
